@@ -1163,8 +1163,15 @@ impl Workbench {
                 }
             });
         });
+        // Linear fits record the objective they minimise. Tree ensembles record
+        // training MSE/2 per stage; a forest minimises no such quantity, so the
+        // label must not call it an objective.
+        let objective_label = match &run.fitted {
+            FittedModel::Linear(_) => "Training objective",
+            FittedModel::Trees(_) => "Training loss (MSE/2, not a minimised objective)",
+        };
         let series = [Series::line(
-            "Training objective",
+            objective_label,
             run.trace
                 .iter()
                 .map(|s| (s.iteration as f64, s.objective))
@@ -1174,7 +1181,7 @@ impl Workbench {
         (Plot {
             id: "objective_path",
             x_label: "Actual projection / solver iteration / tree",
-            y_label: "Training objective",
+            y_label: objective_label,
             height: 265.,
             series: &series,
             selected: None,
@@ -1224,7 +1231,12 @@ impl Workbench {
         }
     }
     fn objective_surface(&mut self, ui: &mut egui::Ui, run: &Run, fit: &linear::LinearFit) {
-        v::section(ui,"A slice through the objective","The first two standardized coefficients vary; the intercept and all other coefficients stay at the selected state.");
+        let scale_note = if fit.config.standardize {
+            "The first two standardized coefficients vary"
+        } else {
+            "The first two centered (unstandardized) coefficients vary"
+        };
+        v::section(ui,"A slice through the objective",&format!("{scale_note}; the intercept and all other coefficients stay at the selected state."));
         let state = fit.step(self.stage);
         let first = state.beta[0];
         let second = state.beta[1];

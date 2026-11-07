@@ -128,7 +128,7 @@ fn main() -> eframe::Result {
         || std::env::args().any(|a| a == "--ui-smoke-test")
     {
         eframe::run_native(
-            "Tree Ensemble Lab 0.5",
+            concat!("Model Lab ", env!("CARGO_PKG_VERSION"), " — tree laboratory"),
             options,
             Box::new(|cc| Ok(Box::new(ui::Lab::new(cc)))),
         )
