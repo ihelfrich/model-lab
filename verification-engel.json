@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "dataset": "statsmodels Engel / quantreg reference data",
+  "scope": "Public observed-data computational workflow; no population truth or causal-effect claim. Human research and teaching sessions remain pending.",
+  "r_version": "R version 4.6.1 (2026-06-24)",
+  "models": [
+    {
+      "model": "linear",
+      "observations": 235,
+      "max_numpy_error": 3.552713678800501e-13,
+      "max_r_error": 5.115907697472721e-13,
+      "project_restored": true,
+      "exported_reproduction": true
+    },
+    {
+      "model": "quadratic",
+      "observations": 235,
+      "max_numpy_error": 2.5153212845907547e-12,
+      "max_r_error": 3.0127011996228248e-12,
+      "project_restored": true,
+      "exported_reproduction": true
+    }
+  ]
+}

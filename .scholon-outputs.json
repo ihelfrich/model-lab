@@ -1,0 +1,510 @@
+{
+  "projects": [
+    {
+      "id": "tree-ensemble-lab-rust-20261102",
+      "root": "/Users/ian/Documents/ChatGPT/Tutoring/outputs/tree-ensemble-lab-rust",
+      "description": "Original native tree and ensemble teaching app; generic code and synthetic data only"
+    }
+  ],
+  "assets": [
+    {
+      "id": "tree-ensemble-lab-rust-20261102.model",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/model.rs",
+      "kind": "procedure",
+      "title": "Rust CART and ensemble teaching engine",
+      "summary": "Original generic educational source for a native local regression and ensemble visualization app.",
+      "facets": [
+        "teaching",
+        "Rust",
+        "regression",
+        "boosting",
+        "random-forest",
+        "synthetic"
+      ],
+      "status": "selected_native_tests_and_windows_packaged_execution_passed",
+      "limits": [
+        "Numeric regression only; bounded synthetic tests; not independent full software parity.",
+        "Mac arm64 launch visually verified; Windows CI packaged execution verified; student-PC acceptance pending.",
+        "No private student records, course attachments, or client exchanges included.",
+        "Raw local teaching-data derivatives and private provenance are not registered. The UI depends on that separate local example module."
+      ],
+      "evidence": [
+        "verification.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.data",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/data.rs",
+      "kind": "procedure",
+      "title": "Local numeric CSV loading procedure",
+      "summary": "Original generic educational source for a native local regression and ensemble visualization app.",
+      "facets": [
+        "teaching",
+        "Rust",
+        "regression",
+        "boosting",
+        "random-forest",
+        "synthetic"
+      ],
+      "status": "selected_native_tests_and_windows_packaged_execution_passed",
+      "limits": [
+        "Numeric regression only; bounded synthetic tests; not independent full software parity.",
+        "Mac arm64 launch visually verified; Windows CI packaged execution verified; student-PC acceptance pending.",
+        "No private student records, course attachments, or client exchanges included.",
+        "Raw local teaching-data derivatives and private provenance are not registered. The UI depends on that separate local example module."
+      ],
+      "evidence": [
+        "verification.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.model-lab.linear",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/linear.rs",
+      "kind": "procedure",
+      "title": "OLS logistic ridge lasso and elastic-net teaching solvers",
+      "summary": "Generic synthetic-data teaching implementation; five linear methods with native visual and teaching views.",
+      "facets": [
+        "teaching",
+        "Rust",
+        "linear-models",
+        "machine-learning",
+        "synthetic"
+      ],
+      "status": "bounded_numerical_macos_lifecycle_and_windows_packaged_checks_passed",
+      "limits": [
+        "48 tests and 15 independent reference fixtures; finite checks are not universal model parity.",
+        "Mac accessibility adapter disabled after reproduced native KVO crash; ten launch-render-close cycles passed.",
+        "No private exchanges, student contact information or pasted crash reports registered.",
+        "The new workspace does not implement all econometric or machine learning families."
+      ],
+      "evidence": [
+        "verification-linear-reference.json",
+        "verification-macos-lifecycle.json",
+        "docs/MODEL-CONTRACTS.md",
+        "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41920588284"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.v07.adapter",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/adapter.rs",
+      "kind": "procedure",
+      "title": "Versioned model adapter and child-process validation",
+      "summary": "Generic local research and teaching software; no student records or private exchanges.",
+      "facets": [
+        "econometrics",
+        "inference",
+        "resampling",
+        "teaching",
+        "machine-learning",
+        "synthetic"
+      ],
+      "status": "bounded_mac_and_windows_packaged_checks_passed",
+      "limits": [
+        "Finite synthetic and native CI checks; student-device acceptance remains unverified.",
+        "Mac Apple silicon; Windows x86-64 on Server 2022 CI.",
+        "Mac ad-hoc signed without notarization; Windows unsigned.",
+        "Mac accessibility adapter disabled; VoiceOver incomplete.",
+        "Manual Mac control inspection and an extended repeat-capture run were limited by the locked screen. Final research workflow and five final lifecycle cycles passed; ten earlier cycles passed before the final token-edit fix.",
+        "Research: 50,000 rows, 32 MiB, 64 raw/512 encoded predictors, 1,000 fits, 300-second worker budget.",
+        "Ordinary coefficient inference is available for supported full-rank unpenalized OLS/logit, not arbitrary model families."
+      ],
+      "evidence": [
+        "Releases/0.7.0/verification-release.json",
+        "verification-research-numerics.json",
+        "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41934329847"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.v07.research_worker",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "python/research_worker.py",
+      "kind": "procedure",
+      "title": "Scientific inference and training-only resampling engine",
+      "summary": "Generic local research and teaching software; no student records or private exchanges.",
+      "facets": [
+        "econometrics",
+        "inference",
+        "resampling",
+        "teaching",
+        "machine-learning",
+        "synthetic"
+      ],
+      "status": "bounded_mac_and_windows_packaged_checks_passed",
+      "limits": [
+        "Finite synthetic and native CI checks; student-device acceptance remains unverified.",
+        "Mac Apple silicon; Windows x86-64 on Server 2022 CI.",
+        "Mac ad-hoc signed without notarization; Windows unsigned.",
+        "Mac accessibility adapter disabled; VoiceOver incomplete.",
+        "Manual Mac control inspection and an extended repeat-capture run were limited by the locked screen. Final research workflow and five final lifecycle cycles passed; ten earlier cycles passed before the final token-edit fix.",
+        "Research: 50,000 rows, 32 MiB, 64 raw/512 encoded predictors, 1,000 fits, 300-second worker budget.",
+        "Ordinary coefficient inference is available for supported full-rank unpenalized OLS/logit, not arbitrary model families."
+      ],
+      "evidence": [
+        "Releases/0.7.0/verification-release.json",
+        "verification-research-numerics.json",
+        "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41934329847"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.v07.research_ui",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/research_ui.rs",
+      "kind": "procedure",
+      "title": "Research projects and result-grounded teaching workflows",
+      "summary": "Generic local research and teaching software; no student records or private exchanges.",
+      "facets": [
+        "econometrics",
+        "inference",
+        "resampling",
+        "teaching",
+        "machine-learning",
+        "synthetic"
+      ],
+      "status": "bounded_mac_and_windows_packaged_checks_passed",
+      "limits": [
+        "Finite synthetic and native CI checks; student-device acceptance remains unverified.",
+        "Mac Apple silicon; Windows x86-64 on Server 2022 CI.",
+        "Mac ad-hoc signed without notarization; Windows unsigned.",
+        "Mac accessibility adapter disabled; VoiceOver incomplete.",
+        "Manual Mac control inspection and an extended repeat-capture run were limited by the locked screen. Final research workflow and five final lifecycle cycles passed; ten earlier cycles passed before the final token-edit fix.",
+        "Research: 50,000 rows, 32 MiB, 64 raw/512 encoded predictors, 1,000 fits, 300-second worker budget.",
+        "Ordinary coefficient inference is available for supported full-rank unpenalized OLS/logit, not arbitrary model families."
+      ],
+      "evidence": [
+        "Releases/0.7.0/verification-release.json",
+        "verification-research-numerics.json",
+        "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41934329847"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.v07.verify_research",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "verify_research.py",
+      "kind": "procedure",
+      "title": "Independent inference, leakage and finite-coverage checks",
+      "summary": "Generic local research and teaching software; no student records or private exchanges.",
+      "facets": [
+        "econometrics",
+        "inference",
+        "resampling",
+        "teaching",
+        "machine-learning",
+        "synthetic"
+      ],
+      "status": "bounded_mac_and_windows_packaged_checks_passed",
+      "limits": [
+        "Finite synthetic and native CI checks; student-device acceptance remains unverified.",
+        "Mac Apple silicon; Windows x86-64 on Server 2022 CI.",
+        "Mac ad-hoc signed without notarization; Windows unsigned.",
+        "Mac accessibility adapter disabled; VoiceOver incomplete.",
+        "Manual Mac control inspection and an extended repeat-capture run were limited by the locked screen. Final research workflow and five final lifecycle cycles passed; ten earlier cycles passed before the final token-edit fix.",
+        "Research: 50,000 rows, 32 MiB, 64 raw/512 encoded predictors, 1,000 fits, 300-second worker budget.",
+        "Ordinary coefficient inference is available for supported full-rank unpenalized OLS/logit, not arbitrary model families."
+      ],
+      "evidence": [
+        "Releases/0.7.0/verification-release.json",
+        "verification-research-numerics.json",
+        "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41934329847"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.v07.RELEASE-0.7-CONTRACT",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "docs/RELEASE-0.7-CONTRACT.md",
+      "kind": "procedure",
+      "title": "Model Lab 0.7 numerical and release contract",
+      "summary": "Generic local research and teaching software; no student records or private exchanges.",
+      "facets": [
+        "econometrics",
+        "inference",
+        "resampling",
+        "teaching",
+        "machine-learning",
+        "synthetic"
+      ],
+      "status": "bounded_mac_and_windows_packaged_checks_passed",
+      "limits": [
+        "Finite synthetic and native CI checks; student-device acceptance remains unverified.",
+        "Mac Apple silicon; Windows x86-64 on Server 2022 CI.",
+        "Mac ad-hoc signed without notarization; Windows unsigned.",
+        "Mac accessibility adapter disabled; VoiceOver incomplete.",
+        "Manual Mac control inspection and an extended repeat-capture run were limited by the locked screen. Final research workflow and five final lifecycle cycles passed; ten earlier cycles passed before the final token-edit fix.",
+        "Research: 50,000 rows, 32 MiB, 64 raw/512 encoded predictors, 1,000 fits, 300-second worker budget.",
+        "Ordinary coefficient inference is available for supported full-rank unpenalized OLS/logit, not arbitrary model families."
+      ],
+      "evidence": [
+        "Releases/0.7.0/verification-release.json",
+        "verification-research-numerics.json",
+        "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41934329847"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.python.study-worker.py",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "python/study_worker.py",
+      "kind": "procedure",
+      "title": "Versioned simulation engine with metered estimation",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.src.study.rs",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/study.rs",
+      "kind": "procedure",
+      "title": "Typed immutable study and checkpoint protocol",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.src.study-ui.rs",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/study_ui.rs",
+      "kind": "procedure",
+      "title": "Native simulation research and teaching workflow",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.src.study-acceptance.rs",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/study_acceptance.rs",
+      "kind": "procedure",
+      "title": "Packaged simulation integration checks",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.verify-studies.py",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "verify_studies.py",
+      "kind": "procedure",
+      "title": "Discriminating finite simulation validation",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.verify-engel.py",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "verify_engel.py",
+      "kind": "procedure",
+      "title": "Independent public Engel reference workflow",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.verify-engel.R",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "verify_engel.R",
+      "kind": "procedure",
+      "title": "Base R QR and HC3 reference procedure",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.08.docs.RELEASE-0.8-CONTRACT.md",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "docs/RELEASE-0.8-CONTRACT.md",
+      "kind": "research_note",
+      "title": "Model Lab 0.8 scientific implementation contract",
+      "summary": "Generic Model Lab 0.8 code or scientific contract; synthetic/public-data verification only.",
+      "facets": [
+        "simulation",
+        "econometrics",
+        "teaching",
+        "reproducibility"
+      ],
+      "status": "mac_and_windows_ci_selected_checks_passed",
+      "limits": [
+        "Finite numerical and automated native tests do not establish universal validity, usability, or learning superiority.",
+        "Physical Windows and consenting-participant testing unavailable per user.",
+        "Mac VoiceOver unsupported; manual control review incomplete due computer-use timeout.",
+        "No private student materials or communications included."
+      ],
+      "evidence": [
+        "verification-studies.json",
+        "verification-study-runtime-mac.json",
+        "verification-study-native-mac.json",
+        "verification-engel.json",
+        "Releases/0.8.0/verification-release.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "tree-ensemble-lab-rust-20261102.decision",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "src/decision.rs",
+      "kind": "procedure",
+      "title": "Native conditional production and demand scenario view",
+      "summary": "Generic evidence loader, accounting sensitivity map and demand animation; no raw course data included.",
+      "facets": [
+        "Rust",
+        "interactive",
+        "scenario-analysis"
+      ],
+      "status": "bounded_tests_and_native_mac_preview_verified",
+      "limits": [
+        "Conditional scenario accounting, not learned causal policy optimization.",
+        "60 full-suite Rust tests passed; native Mac debug preview controls visually verified.",
+        "Private evidence and predictions remain external and are not registered or bundled.",
+        "Preview is not an installed release; VoiceOver and other platforms not verified for this new view."
+      ],
+      "evidence": [
+        "src/decision.rs"
+      ],
+      "depends_on": []
+    }
+  ]
+}

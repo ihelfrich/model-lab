@@ -1,0 +1,24 @@
+[package]
+name = "tree-ensemble-lab"
+version = "0.8.0"
+edition = "2021"
+description = "Native computational teaching workbench for linear models and tree ensembles"
+publish = false
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive", "rc"] }
+eframe = { version = "=0.36.2", default-features = false, features = ["wgpu", "default_fonts", "x11", "wayland"] }
+rand = "=0.8.5"
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+png = "=0.18.1"
+sha2 = "=0.10.9"
+
+# AccessKit's macOS view subclassing reproduces an AppKit nextResponder KVO
+# abort on this machine (macOS 26.6.2). Keep accessibility on other platforms;
+# restore the Mac adapter only after a verified upstream repair.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+eframe = { version = "=0.36.2", default-features = false, features = ["accesskit"] }
+
+[profile.release]
+opt-level = 2
+

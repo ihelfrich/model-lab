@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "tests": 12,
+  "covariance_oracle": "Independent NumPy matrix formulas; includes HC0\u2013HC3, cluster CRV1, HAC, logistic score/information and marginal-effect delta method.",
+  "coverage_experiment": [
+    {
+      "n": 60,
+      "replications": 300,
+      "coverage": 0.9733333333333334,
+      "mc_standard_error": 0.009301533127313926,
+      "misnormalized_coverage": 0.23666666666666666
+    },
+    {
+      "n": 240,
+      "replications": 300,
+      "coverage": 0.9633333333333334,
+      "mc_standard_error": 0.010850840554571826,
+      "misnormalized_coverage": 0.09333333333333334
+    }
+  ],
+  "scope": "Bounded synthetic tests; not universal inferential validity or causal identification."
+}

@@ -1,0 +1,170 @@
+name: Windows student package
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      RUSTFLAGS: -C target-feature=+crt-static
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: Swatinem/rust-cache@v2
+      - name: Install scientific runtime
+        run: python -m pip install -r requirements-research.txt
+      - name: Verify authored questions
+        run: python verify_question_bank.py
+      - name: Test Rust engine and bank
+        run: cargo test --target x86_64-pc-windows-msvc --locked
+      - name: Build native Windows executable
+        run: cargo build --release --target x86_64-pc-windows-msvc --locked
+      - name: Assemble relocatable complete package
+        shell: pwsh
+        run: |
+          $package = 'dist/Tree Ensemble Lab Windows'
+          New-Item -ItemType Directory -Force $package | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/release/tree-ensemble-lab.exe "$package/Tree Ensemble Lab.exe"
+          Copy-Item START-HERE.txt "$package/START HERE.txt"
+          Copy-Item questions.json "$package/questions.json"
+          $pythonHome = python -c "import sys; print(sys.base_prefix)"
+          robocopy $pythonHome "$package/Python" /E /NFL /NDL /NJH /NJS /XD __pycache__ | Out-Null
+          if ($LASTEXITCODE -gt 7) { throw 'Python runtime copy failed' }
+          '@echo off', 'cd /d "%~dp0"', 'start "" "Tree Ensemble Lab.exe" --software-renderer' | Set-Content "$package/Start with software graphics.cmd"
+          $LASTEXITCODE = 0
+      - name: Verify packaged executable and both bundled Python backends
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-engine-acceptance.json'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--self-test','--report', $report -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Engine acceptance exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.status -ne 'passed' -or $r.os -ne 'windows' -or $r.questions -ne 100 -or $r.python_models.Count -ne 13) { throw 'Engine acceptance incomplete' }
+      - name: Verify native window rendering and capture a screenshot
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-ui-acceptance.json'
+          $image = Join-Path (Get-Location) 'dist/windows-native-ui.png'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--ui-smoke-test','--software-renderer','--report',$report,'--screenshot',$image -PassThru
+          if (-not $p.WaitForExit(90000)) { Stop-Process -Id $p.Id -Force; throw 'Native UI test timed out' }
+          if ($p.ExitCode -ne 0) { throw "Native UI exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.status -ne 'passed' -or -not $r.screenshot -or $r.question_count -ne 100) { throw 'Native UI acceptance incomplete' }
+          if ((Get-Item $image).Length -lt 10000) { throw 'Native screenshot missing or unexpectedly small' }
+      - name: Verify all five linear models against scikit-learn
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          python verify_linear_models.py --binary $exe
+          Copy-Item verification-linear-reference.json dist/windows-linear-reference.json
+      - name: Verify all models in the new native workbench
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-workbench-acceptance.json'
+          $image = Join-Path (Get-Location) 'dist/windows-workbench-native.png'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--workbench-ui-smoke-test','--software-renderer','--report',$report,'--screenshot',$image -PassThru
+          if (-not $p.WaitForExit(180000)) { Stop-Process -Id $p.Id -Force; throw 'Workbench UI test timed out' }
+          if ($p.ExitCode -ne 0) { throw "Workbench UI exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.status -ne 'passed' -or $r.models_rendered.Count -ne 9 -or $r.views_rendered.Count -ne 7 -or -not $r.screenshot) { throw 'Workbench acceptance incomplete' }
+          if ((Get-Item $image).Length -lt 10000) { throw 'Workbench screenshot missing' }
+      - name: Verify independent research numerics
+        run: |
+          python verify_research.py
+          Copy-Item verification-research-numerics.json dist/windows-research-numerics.json
+      - name: Verify bundled research and reproduction workflow
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-research-runtime.json'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--research-self-test','--require-bundled-research','--report',$report -PassThru
+          if (-not $p.WaitForExit(300000)) { Stop-Process -Id $p.Id -Force; throw 'Research runtime timed out' }
+          if ($p.ExitCode -ne 0) { throw "Research runtime exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.status -ne 'passed' -or -not $r.runtime_relocated) { throw 'Research runtime incomplete' }
+      - name: Verify native research and teaching workflows
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-research-native.json'
+          $image = Join-Path (Get-Location) 'dist/windows-research-native.png'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--research-ui-smoke-test','--software-renderer','--report',$report,'--screenshot',$image -PassThru
+          if (-not $p.WaitForExit(300000)) { Stop-Process -Id $p.Id -Force; throw 'Research UI timed out' }
+          if ($p.ExitCode -ne 0) { throw "Research UI exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.status -ne 'passed' -or -not $r.screenshot) { throw 'Research UI incomplete' }
+          if ((Get-Item $image).Length -lt 10000) { throw 'Research screenshot missing' }
+      - name: Verify simulation studies and discriminating numerical checks
+        run: |
+          python verify_studies.py
+          Copy-Item verification-studies.json dist/windows-studies-numerics.json
+      - name: Verify bundled simulation runtime, restore, cancellation and exports
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-studies-runtime.json'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--study-self-test','--require-bundled-research','--report',$report -PassThru
+          if (-not $p.WaitForExit(300000)) { Stop-Process -Id $p.Id -Force; throw 'Study runtime timed out' }
+          if ($p.ExitCode -ne 0) { throw "Study runtime exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.status -ne 'passed' -or -not $r.runtime_relocated -or $r.cancel_exit_ms -gt 2000) { throw 'Study runtime acceptance incomplete' }
+      - name: Verify public Engel workflow against independent NumPy and R fixture
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          python verify_engel.py --binary $exe --r-reference reference/engel-r.csv
+          Copy-Item verification-engel.json dist/windows-engel-reference.json
+      - name: Verify native simulation research and teaching workflow
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe').Path
+          $report = Join-Path (Get-Location) 'dist/windows-studies-native.json'
+          $image = Join-Path (Get-Location) 'dist/windows-studies-native.png'
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $p = Start-Process $exe -ArgumentList '--study-ui-smoke-test','--software-renderer','--report',$report,'--screenshot',$image -PassThru
+          if (-not $p.WaitForExit(180000)) { Stop-Process -Id $p.Id -Force; throw 'Study native workflow timed out' }
+          if ($p.ExitCode -ne 0) { throw "Study native exited $($p.ExitCode)" }
+          $r = Get-Content $report | ConvertFrom-Json
+          if ($r.workflow_status -ne 'passed' -or $r.capture_status -ne 'captured') { throw 'Workflow and screenshot acceptance are separate; one is incomplete' }
+      - name: Package ZIP and checksums
+        shell: pwsh
+        run: |
+          Copy-Item dist/windows-engine-acceptance.json 'dist/Tree Ensemble Lab Windows/'
+          Copy-Item dist/windows-ui-acceptance.json 'dist/Tree Ensemble Lab Windows/'
+          Copy-Item dist/windows-workbench-acceptance.json 'dist/Tree Ensemble Lab Windows/'
+          Copy-Item dist/windows-linear-reference.json 'dist/Tree Ensemble Lab Windows/'
+          Copy-Item dist/windows-research-*.json 'dist/Tree Ensemble Lab Windows/'
+          Copy-Item dist/windows-studies-*.json 'dist/Tree Ensemble Lab Windows/'
+          Copy-Item dist/windows-engel-reference.json 'dist/Tree Ensemble Lab Windows/'
+          Compress-Archive -Path 'dist/Tree Ensemble Lab Windows' -DestinationPath dist/Tree-Ensemble-Lab-Windows.zip -CompressionLevel Optimal
+          Get-FileHash dist/Tree-Ensemble-Lab-Windows.zip -Algorithm SHA256 | Format-List | Out-File dist/windows-sha256.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tree-ensemble-lab-windows
+          path: |
+            dist/Tree-Ensemble-Lab-Windows.zip
+            dist/windows-*.json
+            dist/windows-native-ui.png
+            dist/windows-workbench-native.png
+            dist/windows-research-native.png
+            dist/windows-studies-native.png
+            dist/windows-sha256.txt
+          retention-days: 14

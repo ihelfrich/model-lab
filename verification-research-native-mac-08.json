@@ -1,0 +1,21 @@
+{
+  "actual_worker_jobs": [
+    "inference",
+    "nested-resampling",
+    "research-export"
+  ],
+  "completed_analyses": 2,
+  "engine_version": "0.8.0",
+  "instructor_view_rendered": true,
+  "os": "macos",
+  "project_saved_and_restored": true,
+  "research_views": [
+    "Design",
+    "Inference",
+    "Validation",
+    "Project",
+    "Teach"
+  ],
+  "screenshot": true,
+  "status": "passed"
+}

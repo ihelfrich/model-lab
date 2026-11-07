@@ -1,0 +1,10 @@
+/target/
+/.venv/
+/dist/
+/Releases/
+/student-delivery/
+__pycache__/
+*.zip
+*.png
+*.private.json
+.DS_Store

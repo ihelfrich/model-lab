@@ -1,0 +1,26 @@
+{
+  "model": "forest",
+  "models_rendered": [
+    "ols",
+    "logistic",
+    "ridge",
+    "lasso",
+    "elastic_net",
+    "tree",
+    "boosting",
+    "stochastic",
+    "forest"
+  ],
+  "native_frames": 113,
+  "os": "macos",
+  "screenshot": true,
+  "status": "passed",
+  "views_rendered": [
+    "Explore",
+    "Coefficients",
+    "Optimization",
+    "Learn",
+    "Code",
+    "Data"
+  ]
+}

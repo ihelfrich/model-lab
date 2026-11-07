@@ -1,0 +1,1 @@
+The native application uses Rust and the eframe/egui/wgpu ecosystem, rand, serde_json and png, under their respective open-source licenses. Bundled font licenses are retained here. The complete Windows package retains the Python installation and scientific packages with their shipped license files. Source dependencies and exact versions are recorded in Cargo.lock.

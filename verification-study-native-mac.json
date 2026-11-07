@@ -1,0 +1,27 @@
+{
+  "actual_worker_jobs": [
+    "preview",
+    "simulate",
+    "regenerate",
+    "student-export",
+    "research-export"
+  ],
+  "application_liveness": true,
+  "capture_attempts": 1,
+  "capture_status": "captured",
+  "engine_version": "0.8.0",
+  "instructor_view_built": true,
+  "os": "macos",
+  "project_v2_restored": true,
+  "scope": "Automated native workflow; not a participant study or accessibility certification.",
+  "screenshot": true,
+  "status": "passed",
+  "views_built": [
+    "Specify",
+    "Sample",
+    "Results",
+    "Replication",
+    "Teach & export"
+  ],
+  "workflow_status": "passed"
+}

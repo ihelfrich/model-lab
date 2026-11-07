@@ -1,0 +1,48 @@
+{
+  "capability_models": 9,
+  "engine_version": "0.8.0",
+  "explicit_test_disclosure_recorded": true,
+  "export_files": [
+    "README.txt",
+    "coefficients.csv",
+    "data.csv",
+    "figure.pdf",
+    "figure.svg",
+    "instructor-key.txt",
+    "manifest.json",
+    "report.tex",
+    "reproduce.py",
+    "request.json",
+    "requirements.txt",
+    "research_worker.py",
+    "result.json",
+    "student-worksheet.tex",
+    "teaching-snapshot.json"
+  ],
+  "exported_reproduction": {
+    "request_verified": true,
+    "source_verified": true,
+    "status": "passed",
+    "tolerance": 1e-7,
+    "version_drift": {}
+  },
+  "inference": true,
+  "nested_resampling": true,
+  "os": "macos",
+  "project_restored": true,
+  "protocol_version": 1,
+  "python": "3.14.7",
+  "request_verified": true,
+  "reserved_test_unscored": true,
+  "runtime_relocated": true,
+  "status": "passed",
+  "versions": {
+    "matplotlib": "3.11.2",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0"
+  },
+  "worker_source_verified": true
+}

@@ -1,0 +1,26 @@
+{
+  "arch": "aarch64",
+  "code_questions": 14,
+  "native_models": [
+    "Decision tree",
+    "Gradient boosting",
+    "Stochastic boosting",
+    "Random forest"
+  ],
+  "os": "macos",
+  "python_models": [
+    "Decision tree / transparent",
+    "Decision tree / sklearn",
+    "Gradient boosting / transparent",
+    "Gradient boosting / sklearn",
+    "Stochastic boosting / transparent",
+    "Stochastic boosting / sklearn",
+    "Random forest / transparent",
+    "Random forest / sklearn"
+  ],
+  "python_version": "3.14.7",
+  "questions": 100,
+  "runtime_relocated": false,
+  "sklearn_version": "1.9.1",
+  "status": "passed"
+}

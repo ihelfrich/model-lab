@@ -1,0 +1,28 @@
+{
+  "actual_child_process": true,
+  "actual_windows_desktop": "unavailable per user; CI only",
+  "cancel_ack_ms": 0.012916,
+  "cancel_exit_ms": 25.304166,
+  "checkpoint_and_resume": true,
+  "engine_version": "0.8.0",
+  "exported_reproduction": true,
+  "fit_accounting": true,
+  "human_pilot": "unavailable per user; not evaluated",
+  "inspection_regenerated": true,
+  "latency_scope": "CPU egui layout only; not end-to-end input or GPU presentation latency.",
+  "os": "macos",
+  "project_artifacts_relocated": true,
+  "project_v2_restored": true,
+  "protocol_version": 2,
+  "python": "3.14.7",
+  "runtime_relocated": true,
+  "scenarios": [
+    "heteroskedasticity",
+    "confounding",
+    "clustering"
+  ],
+  "status": "passed",
+  "student_packet_excludes_instructor_data": true,
+  "ui_build_p95_ms": 2.504167,
+  "voiceover": "unsupported"
+}

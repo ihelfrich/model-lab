@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "status": "not_evaluated",
+  "availability": "Dr. Helfrich stated that only this Mac is available; participants and a physical Windows desktop are unavailable.",
+  "minimum_roles": {"researcher": 2, "instructor": 2, "learner": 4},
+  "research_case": "Public Engel food-expenditure reference, linear/quadratic OLS with HC3; reference estimates are not population truth.",
+  "research_tasks": [
+    "State the target and distinguish known simulator truth from the unknown target in observed Engel data.",
+    "Estimate the linear and quadratic Engel specifications and inspect HC3 intervals.",
+    "Save, reopen and reproduce the selected analysis from its export.",
+    "Specify and run a confounding simulation with explicit method variants and a fit allowance.",
+    "Cancel/resume, inspect an actual replication, and explain failure and coverage denominators."
+  ],
+  "instructor_tasks": [
+    "Choose a template and target, and record a prediction before showing results.",
+    "Explain the actual sampling distribution, interval plot and Monte Carlo uncertainty.",
+    "Regenerate a selected replication and connect coefficients to its observations.",
+    "Use the transfer exercise after changing a generating assumption.",
+    "Export a student packet and verify that it excludes the oracle, seed, truth and key."
+  ],
+  "learner_tasks": [
+    "Record a prediction and its reasoning before result disclosure.",
+    "Explain what changed and what remained fixed after altering an assumption.",
+    "Distinguish coefficient SE, Monte Carlo SE, coverage and causal identification.",
+    "Answer a transfer question using a different parameter setting."
+  ],
+  "scoring": {"core_task_completion_without_assistance_minimum": 0.8, "unresolved_critical_errors_allowed": 0, "complete_teaching_sessions_minimum": 2},
+  "critical_errors": ["stale result presented as current", "wrong observation identity", "hidden failure", "mislabelled truth", "unsupported causal interpretation"],
+  "limits": [
+    "No participants, consent, completed tasks or observed teaching sessions are asserted by this protocol.",
+    "Small pilot outcomes are descriptive usability/feasibility evidence, not learning superiority.",
+    "Dr. Helfrich owns any future recruitment; no automatic outreach is authorized.",
+    "Keep identifying responses and private participant notes local and outside the generic reuse catalogue."
+  ]
+}

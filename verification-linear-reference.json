@@ -1,0 +1,131 @@
+{
+  "status": "passed",
+  "fixtures": 15,
+  "python": "3.14.7",
+  "numpy": "2.5.4",
+  "sklearn": "1.9.1",
+  "results": [
+    {
+      "name": "Ordinary least squares reference seed7",
+      "model": "ols",
+      "max_prediction_error": 9.325873406851315e-15,
+      "max_coefficient_error": 2.220446049250313e-15,
+      "stationarity": 1.5247677252749892e-15,
+      "states": 7
+    },
+    {
+      "name": "Ordinary least squares reference seed4710",
+      "model": "ols",
+      "max_prediction_error": 1.3322676295501878e-14,
+      "max_coefficient_error": 3.1086244689504383e-15,
+      "stationarity": 4.320559209881891e-15,
+      "states": 7
+    },
+    {
+      "name": "Ordinary least squares reference seed83",
+      "model": "ols",
+      "max_prediction_error": 3.552713678800501e-15,
+      "max_coefficient_error": 8.881784197001252e-16,
+      "stationarity": 8.376545984623007e-16,
+      "states": 4
+    },
+    {
+      "name": "Logistic regression reference seed7",
+      "model": "logistic",
+      "max_prediction_error": 8.417532226800972e-10,
+      "max_coefficient_error": 8.333087553324958e-10,
+      "stationarity": 1.26911136222492e-13,
+      "states": 7
+    },
+    {
+      "name": "Logistic regression reference seed4710",
+      "model": "logistic",
+      "max_prediction_error": 5.9165998766985695e-09,
+      "max_coefficient_error": 6.261944296426236e-09,
+      "stationarity": 9.288360011683316e-16,
+      "states": 7
+    },
+    {
+      "name": "Logistic regression reference seed83",
+      "model": "logistic",
+      "max_prediction_error": 4.6565484801419643e-10,
+      "max_coefficient_error": 1.2527117121408082e-09,
+      "stationarity": 2.8983434575968747e-16,
+      "states": 7
+    },
+    {
+      "name": "Ridge regression reference seed7",
+      "model": "ridge",
+      "max_prediction_error": 4.710507539584796e-10,
+      "max_coefficient_error": 1.1890133322367546e-10,
+      "stationarity": 2.1084911594471123e-10,
+      "states": 8
+    },
+    {
+      "name": "Ridge regression reference seed4710",
+      "model": "ridge",
+      "max_prediction_error": 3.4919467317706676e-10,
+      "max_coefficient_error": 7.867706486308634e-11,
+      "stationarity": 1.2482170852479157e-10,
+      "states": 8
+    },
+    {
+      "name": "Ridge regression reference seed83",
+      "model": "ridge",
+      "max_prediction_error": 1.9068258083621004e-10,
+      "max_coefficient_error": 4.719367119321305e-10,
+      "stationarity": 1.9613445589872214e-10,
+      "states": 15
+    },
+    {
+      "name": "Lasso reference seed7",
+      "model": "lasso",
+      "max_prediction_error": 4.630429373264633e-11,
+      "max_coefficient_error": 1.7425172416096757e-11,
+      "stationarity": 2.6604357605819473e-11,
+      "states": 5
+    },
+    {
+      "name": "Lasso reference seed4710",
+      "model": "lasso",
+      "max_prediction_error": 6.480147529686064e-10,
+      "max_coefficient_error": 2.3876101096220737e-10,
+      "stationarity": 3.433472117730929e-10,
+      "states": 5
+    },
+    {
+      "name": "Lasso reference seed83",
+      "model": "lasso",
+      "max_prediction_error": 2.6645352591003757e-15,
+      "max_coefficient_error": 5.551115123125783e-16,
+      "stationarity": 1.0547118733938987e-15,
+      "states": 2
+    },
+    {
+      "name": "Elastic net reference seed7",
+      "model": "elastic_net",
+      "max_prediction_error": 1.3485212946307001e-11,
+      "max_coefficient_error": 4.0598635564492724e-12,
+      "stationarity": 6.4883098893631086e-12,
+      "states": 7
+    },
+    {
+      "name": "Elastic net reference seed4710",
+      "model": "elastic_net",
+      "max_prediction_error": 3.427478301176734e-10,
+      "max_coefficient_error": 1.2663203818874536e-10,
+      "stationarity": 1.9854373700667338e-10,
+      "states": 5
+    },
+    {
+      "name": "Elastic net reference seed83",
+      "model": "elastic_net",
+      "max_prediction_error": 2.782623020891606e-10,
+      "max_coefficient_error": 9.224022656795228e-10,
+      "stationarity": 2.3764411272164665e-10,
+      "states": 15
+    }
+  ],
+  "conventions": "Training-only population-standard-deviation scaling; Ridge alpha_library=n_train*alpha; logistic C=infinity.",
+  "scope": "Selected independent fixtures, not complete package parity or a proof over all inputs."
+}

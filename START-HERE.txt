@@ -1,0 +1,127 @@
+MODEL LAB 0.8 — simulation-centred research and teaching candidate
+
+Windows: extract the entire ZIP, then open Tree Ensemble Lab.exe.
+Keep the Python folder beside the application. No Rust or Python installation
+is required for the complete Windows package.
+Mac: open Model Lab 0.8.app (Apple silicon). The complete Mac and Windows
+packages include the scientific Python runtime; no separate installation is needed.
+An unsigned/unnotarized download may require the operating system's normal
+Open Anyway approval. Windows includes a software-graphics launcher.
+
+SIMULATION LABORATORIES
+Open Research, then Simulate. Select heteroskedasticity, unobserved confounding
+or cluster dependence. Specify the aim, target, methods, replication count and
+seed. Inspect a generated sample and record a prediction before running.
+Choose a new absolute project filename in an existing folder, then Freeze and
+run new study. Inference fits count both numerical backends against the allowance.
+
+Results report failures, denominators and Monte Carlo uncertainty. Select a
+replication to regenerate its data and verify its actual numerical result.
+The simulator knows its generating target; imported research data do not acquire
+known truth or causal identification from fitting. Group dependence can affect
+the intercept and slope differently; select the target explicitly.
+
+Projects now use a version-2 JSON manifest and an associated .studies folder.
+KEEP BOTH TOGETHER. Save As copies study artifacts. Earlier 0.7 projects retain
+their histories and test disclosures. Resume requires the same specification,
+source and package versions; interrupted fit reservations remain accounted for.
+Student exports contain observed data and worksheets only. Instructor/research
+exports include known truth, answers and executable reproduction; share carefully.
+
+This is a release candidate with bounded automated checks. Human usability and
+learning outcomes are not evaluated. Windows acceptance is CI-based; an actual
+Windows desktop was unavailable. Mac VoiceOver is not supported. Read the
+included release verification for exact platform and capture evidence.
+
+RESEARCH AND TEACHING
+Open Research for Design, Inference, Validation, Project and Teach.
+Assign response/predictor roles, categories, missing tokens and group/time roles.
+Optional formulas use checked terms, squares and interactions; no Python eval.
+Research CSVs support up to 50,000 rows / 32 MiB, 64 selected raw predictors
+and 512 encoded predictors. Native animated examples retain their 5,000-row limit.
+OLS supports classical, HC0-HC3, one-way cluster and Bartlett HAC inference.
+Logistic supports classical, HC0 and cluster inference plus numeric marginal effects.
+Penalized and tree models do not receive ordinary inferential tables.
+Validation supports repeated, grouped, temporal and nested designs with training-only
+preprocessing. The final test stays unscored until explicitly evaluated; disclosure
+is recorded, including uncertain/canceled attempts.
+Project saves exact samples, specifications, results, notes and teaching answers.
+Export creates runnable reproduction code, CSV tables, vector PDF/SVG figures,
+LaTeX report/worksheet sources and a separate instructor key. The bundle contains
+data and instructor answers; review it before sharing. No data are uploaded.
+Scientific backends do not expose optimizer traces; native replay is separate.
+Mac VoiceOver support remains incomplete while the crash-prone adapter is disabled.
+
+THE MODEL WORKSPACE
+Select OLS, logistic regression, ridge, lasso, elastic net, a decision tree,
+gradient boosting, stochastic boosting or random forest in the left catalogue.
+Choose a dataset and model settings on the right. Fits run in the background.
+
+Explore links observations to predictions and residuals. Replay moves through
+actual recorded projections, solver iterations or ensemble states. Previous
+and Next, the slider and left/right arrow keys move through recorded states.
+A fitted slice holds other predictors at their training medians; it is not PDP.
+Pin a state to compare another model on the same observations and row split.
+
+Coefficients shows original-unit or transformed coefficients. Ridge, lasso and
+elastic net also provide a 33-value penalty path with validation performance.
+Optimization shows actual objectives, losses and stationarity/KKT residuals.
+The two-coefficient objective surface holds all other parameters fixed.
+Learn explains each new model, works through a selected observation and offers
+original reasoning questions with explanations after you check an answer.
+Code generates executable scikit-learn code using the exact data and row split.
+Data previews observations and lets you assign CSV response/predictor columns.
+
+Binary logistic regression requires 0/1 outcomes and uses stratified validation.
+Changing its decision threshold changes decisions without refitting probabilities.
+Unpenalized separation is reported as an estimation warning, not convergence.
+Preprocessing uses training rows only. Penalized models exclude the intercept.
+
+CSV: header plus 4–5,000 rows, at most 64 selected numeric predictors. Missing,
+nonfinite and non-numeric selected values must be resolved before fitting.
+Saved JSON experiments include selected numeric data, settings, row partition,
+actual trace and predictions. Loading refits and checks reproducibility.
+Choose save destinations appropriate for the data you use.
+
+OPEN TREE LABORATORY
+This opens the complete specialist interface from the previous version:
+
+EXPLORE
+The right-hand DATA layer chooses an example or your own CSV.
+ENGINE chooses decision tree, boosting, stochastic boosting or random forest.
+TUNE changes depth, learning rate and advanced settings. Changes prepare the
+model automatically. Encoders can be dragged; numeric fields allow exact values.
+
+Add next tree shows one correction. Fast and Turbo shorten playback; +10,
+Finish now, the slider and numbered sequence keys let you jump through the fit.
+Click a point to follow its prediction and residual. Guess its next move if useful.
+
+LABS
+Try four guided experiments and pin models for comparison on the same data.
+Validation scores are for learning and tuning, not proof of future performance.
+
+CODE
+Generated Python changes with the controls. Copy it into the practice editor
+to modify it, or open a .py file. Run executes locally. Pause after each round
+lets you connect the highlighted code with actual predictions and error scores.
+Code runs with your normal account's file access; the editor is not a security
+sandbox. Only run code you intend to execute. No external upload is performed.
+
+QUIZ
+100 original multiple-choice questions, 10 topics, with explanations. Fourteen
+questions contain Python snippets. Select a topic, shuffle, or review missed
+questions. Answers appear only after Check answer. Progress is session-only.
+These are original practice questions, not actual or predicted class quizzes.
+
+SCIENCE
+Inspect forest out-of-bag error, validation metrics, permutation importance,
+partial dependence and ICE. These describe fitted prediction behavior, not
+causal effects. The specialist tree laboratory supports numeric-response regression.
+
+CSV files need a header, finite numeric selected columns and 4–5,000 rows.
+Other columns remain visible but are not automatically encoded or imputed.
+Included examples are existing educational data subsets and synthetic examples.
+Do not interpret a community-data model as an individual risk assessment.
+
+Windows graphics: if the normal launch fails, run Start with software graphics.cmd.
+That launch prefers a CPU graphics adapter when one is available.

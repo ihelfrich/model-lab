@@ -1,0 +1,72 @@
+{
+  "status": "partial",
+  "macos": "26.6.2",
+  "architecture": "arm64",
+  "scope": "Real native viewport-close path; nine models and seven views; synthetic data; Mac accessibility adapter disabled.",
+  "earlier_0_7_successful_runs": [
+    {
+      "run": 1,
+      "compact": false,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 2,
+      "compact": true,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 3,
+      "compact": false,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 4,
+      "compact": true,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 5,
+      "compact": false,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 6,
+      "compact": true,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 7,
+      "compact": false,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 8,
+      "compact": true,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 9,
+      "compact": false,
+      "exit_code": 0,
+      "native_frames": 131
+    },
+    {
+      "run": 10,
+      "compact": true,
+      "exit_code": 0,
+      "native_frames": 131
+    }
+  ],
+  "final_build_successful_cycles": 5,
+  "final_build_incomplete_cycle": "Compact cycle 6 timed out waiting for a screenshot while the screen was locked. No crash was observed.",
+  "diagnostic": "App reached all nine models and seven views; repeated capture requests returned no image while locked. Exact cause not isolated; drawable unavailability is suspected.",
+  "final_research_native_workflow": "Passed on final source: actual inference, nested validation, project restore, teaching and export; image captured."
+}

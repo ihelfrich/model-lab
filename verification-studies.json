@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "test_groups": 10,
+  "design": "n=80/320, R=80, seeds 471008/471009; independent normal variables; c=gamma=1; zero-c/gamma sensitivity; paired methods.",
+  "sensitivity": [
+    {
+      "seed": 471008,
+      "n": 80,
+      "replications": 80,
+      "observed_bias": {
+        "value": 0.49447249460234116,
+        "mc_se": 0.010157408673145374,
+        "n": 80
+      },
+      "oracle_bias": {
+        "value": 0.005863376775916351,
+        "mc_se": 0.01165394206183946,
+        "n": 80
+      },
+      "coverage": {
+        "value": 0.9625,
+        "mc_se": 0.021374819563973056,
+        "n": 80
+      },
+      "misnormalized_coverage": 0.225
+    },
+    {
+      "seed": 471008,
+      "n": 320,
+      "replications": 80,
+      "observed_bias": {
+        "value": 0.5009106188969364,
+        "mc_se": 0.005066416347133431,
+        "n": 80
+      },
+      "oracle_bias": {
+        "value": 0.0016244749749099077,
+        "mc_se": 0.0069071779206663735,
+        "n": 80
+      },
+      "coverage": {
+        "value": 0.925,
+        "mc_se": 0.02963384141420118,
+        "n": 80
+      },
+      "misnormalized_coverage": 0.0625
+    },
+    {
+      "seed": 471009,
+      "n": 80,
+      "replications": 80,
+      "observed_bias": {
+        "value": 0.4821079542389043,
+        "mc_se": 0.0118878191754378,
+        "n": 80
+      },
+      "oracle_bias": {
+        "value": -0.015468889511309637,
+        "mc_se": 0.012753772362021375,
+        "n": 80
+      },
+      "coverage": {
+        "value": 0.9875,
+        "mc_se": 0.012499999999999997,
+        "n": 80
+      },
+      "misnormalized_coverage": 0.25
+    },
+    {
+      "seed": 471009,
+      "n": 320,
+      "replications": 80,
+      "observed_bias": {
+        "value": 0.5034718044140417,
+        "mc_se": 0.005557807966062772,
+        "n": 80
+      },
+      "oracle_bias": {
+        "value": 0.011402455163185199,
+        "mc_se": 0.0056012150687169025,
+        "n": 80
+      },
+      "coverage": {
+        "value": 0.975,
+        "mc_se": 0.017565429223263186,
+        "n": 80
+      },
+      "misnormalized_coverage": 0.05
+    }
+  ],
+  "scope": "Finite synthetic checks; not universal inferential validity, causal identification or learning effectiveness."
+}

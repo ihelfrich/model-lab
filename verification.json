@@ -1,0 +1,122 @@
+{
+  "date": "2026-11-03",
+  "classification": "original educational application; synthetic fixtures; local numeric regression",
+  "native_framework": "Rust / eframe 0.36.2 / egui / wgpu",
+  "tested_host": "Apple Silicon macOS and GitHub-hosted Windows Server 2022 x86_64",
+  "selected_numerical_tests": 28,
+  "numerical_checks": [
+    "CART split and leaf means match four-observation hand calculation",
+    "Two residual-boosting updates match signed hand arithmetic",
+    "25 randomized CART root splits match independent brute-force SSE oracle within 1e-8",
+    "Depth and minimum-leaf constraints",
+    "All four algorithms reproduce predictions from the same seed",
+    "All four algorithms exclude validation rows from fitted samples",
+    "Changing validation labels does not change any fitted model predictions",
+    "Stochastic subsets have no duplicates; forests bootstrap with replacement",
+    "Full-sample squared-error boosting training MSE is nonincreasing in selected fixture",
+    "Constant response and training cancellation",
+    "CSV quoting, embedded newlines, BOM, CRLF and malformed input rejection",
+    "Included CSV parses and fits all four algorithms",
+    "Animation endpoints and signed interpolation bounds",
+    "Question bank integrity and selected answer arithmetic"
+  ],
+  "native_launch": "Version0.3 launched; guided Explore layout, dominant dark plot, selected-observation arithmetic, progressive controls and streamlined navigation visibly reviewed through native screenshot.",
+  "gui_interaction_limit": "User actively changed app state during inspection; further control manipulation deferred. Full GUI regression testing not claimed.",
+  "mac_bundle": "dist/Tree Ensemble Lab 0.5.app; arm64; ad-hoc signed; v0.4 native appearance reviewed, v0.5 built but not manually launched",
+  "windows": {
+    "status": "passed",
+    "workflow": "https://github.com/ihelfrich/tree-ensemble-lab/actions/runs/41695663944",
+    "source_commit": "f1b2493b60f5d3f9099cbfd534090c6bf7de3b84",
+    "archive_sha256": "c6516f252cbd8e363085b43aa59fb6e012b4602e9938f16cc0700e633a5c2c7d",
+    "engine": {
+      "arch": "x86_64",
+      "code_questions": 14,
+      "native_models": [
+        "Decision tree",
+        "Gradient boosting",
+        "Stochastic boosting",
+        "Random forest"
+      ],
+      "os": "windows",
+      "python_models": [
+        "Decision tree / transparent",
+        "Decision tree / sklearn",
+        "Gradient boosting / transparent",
+        "Gradient boosting / sklearn",
+        "Stochastic boosting / transparent",
+        "Stochastic boosting / sklearn",
+        "Random forest / transparent",
+        "Random forest / sklearn"
+      ],
+      "python_version": "3.13.17",
+      "questions": 100,
+      "runtime_relocated": true,
+      "sklearn_version": "1.9.1",
+      "status": "passed"
+    },
+    "ui": {
+      "native_window_frames": 42,
+      "os": "windows",
+      "question_count": 100,
+      "screenshot": true,
+      "status": "passed",
+      "views_rendered": [
+        "explore",
+        "science",
+        "experiments",
+        "python",
+        "quiz-code-question",
+        "tree-details",
+        "encoder-controls"
+      ]
+    },
+    "visual_review": "Captured Windows Explore screen reviewed: dark instrument shell, encoder controls and residual plot render. At 1024px the main plot/details are clipped by the side pane; maximize the app for the complete view.",
+    "scope": "Actual Windows CI runtime and native rendering; not a test on every student PC."
+  },
+  "limits": [
+    "Numeric-response regression only; quiz also covers classification theory.",
+    "No independent complete statistical-library parity certification.",
+    "Random holdout and forest OOB; no cross-validation or grouped/time split.",
+    "Animation interpolates fitted endpoints; it is not physical fluid simulation.",
+    "Learner usability acceptance remains pending.",
+    "Selected educational data derivatives included; upstream redistribution licensing not independently verified."
+  ],
+  "version": "0.5.0",
+  "python": {
+    "transparent_execution": "All four generated programs executed using stdlib Python; actual finite predictions, stage errors and line events checked.",
+    "class_library_execution": "All four sklearn-generated programs executed with existing cached sklearn1.9.1 environment.",
+    "step_mode": "Baseline and next tree block until actual stdin continuation; completion checked.",
+    "generated_settings": "Learning rate/depth changes alter code; forest uses bootstrap choices, stochastic boosting uses sample without replacement.",
+    "gui_limit": "Workspace native controls not driven during human activity; execution and pause/resume verified through the same session backend.",
+    "failure_fixed": "Concurrent sessions collided on millisecond-only temp-directory names; nanosecond plus atomic counter IDs added; concurrent execution tests pass.",
+    "runtime_requirement": "Windows includes relocated Python 3.13.17 and sklearn 1.9.1, verified with original Python absent from PATH. Mac uses a local Python environment. Code executes with account privileges."
+  },
+  "existing_data_examples": {
+    "income_rows": 3000,
+    "diamonds_rows": 1500,
+    "diamonds_source_rows": 53940,
+    "florida_rows": 90,
+    "verification": "All three derivatives parsed and fit all four native model types; source SHA256 and deterministic sampling receipts retained privately.",
+    "reuse": "Raw derivatives and private provenance excluded from generic reuse registration."
+  },
+  "guided_ui": {
+    "workflow": "Automatic dataset/model preparation and debounced tuning; one primary Add next tree action; optional prediction-before-update exercise.",
+    "graphics": "Luminous fitted slice, animated correction tracer, sample rings, clickable observations, residual tether; compact stage error path.",
+    "timing": "Prediction motion begins only in final add-correction phase; endpoint checks pass.",
+    "acceptance": "Visually reviewed on Mac; learner usability acceptance remains pending."
+  },
+  "quiz": {
+    "questions": 100,
+    "topics": 10,
+    "code_questions": 14,
+    "select_all_questions": 11,
+    "checks": "Unique stems and choices, indices, 11 executable stdout examples, selected arithmetic anchors"
+  },
+  "improvements": [
+    "True forest OOB metrics and coverage",
+    "Validation early stopping and best-stage selection",
+    "Held-out permutation importance and PDP/ICE",
+    "Cached stage playback; four speed presets and skip controls",
+    "Adjacent-float CART midpoint guard in Rust and transparent Python"
+  ]
+}
