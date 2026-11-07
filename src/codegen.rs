@@ -41,7 +41,17 @@ pub fn python(run: &Run) -> String {
         }
         ModelId::Boosting | ModelId::Stochastic => {
             code.push_str("Z = X\n");
-            (format!("GradientBoostingRegressor(n_estimators={}, max_depth={}, min_samples_leaf={}, learning_rate={}, subsample={}, random_state={})",cfg.tree.trees,cfg.tree.depth,cfg.tree.min_leaf,cfg.tree.rate,if cfg.model==ModelId::Stochastic{cfg.tree.fraction}else{1.},cfg.seed),false)
+            // Early stopping can end the native fit before cfg.tree.trees rounds.
+            // Export the number of trees actually fitted so the script
+            // reproduces the displayed model rather than the requested budget.
+            let fitted_trees = match &run.fitted {
+                crate::experiment::FittedModel::Trees(f) => f.trees.len(),
+                _ => cfg.tree.trees,
+            };
+            if fitted_trees < cfg.tree.trees {
+                code.push_str(&format!("# Validation early stopping ended the native fit after {} of {} requested rounds.\n",fitted_trees,cfg.tree.trees));
+            }
+            (format!("GradientBoostingRegressor(n_estimators={}, max_depth={}, min_samples_leaf={}, learning_rate={}, subsample={}, random_state={})",fitted_trees,cfg.tree.depth,cfg.tree.min_leaf,cfg.tree.rate,if cfg.model==ModelId::Stochastic{cfg.tree.fraction}else{1.},cfg.seed),false)
         }
         ModelId::Forest => {
             code.push_str("Z = X\n");
@@ -102,6 +112,42 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod boosting_export_tests {
+    use super::*;
+    use crate::experiment::{scenario, FittedModel, RunConfig};
+    use std::sync::{atomic::AtomicBool, Arc};
+    fn boosting(patience: usize, improvement: f64) -> Run {
+        let mut cfg = RunConfig {
+            model: ModelId::Boosting,
+            ..Default::default()
+        };
+        cfg.tree.trees = 60;
+        cfg.tree.patience = patience;
+        cfg.tree.min_relative_improvement = improvement;
+        Run::fit("boost".into(), scenario(1, 7, 2.), cfg, Arc::new(AtomicBool::new(false))).unwrap()
+    }
+    fn exported_estimators(code: &str) -> usize {
+        let start = code.find("n_estimators=").unwrap() + "n_estimators=".len();
+        code[start..].split(',').next().unwrap().parse().unwrap()
+    }
+    #[test]
+    fn exported_estimator_count_equals_fitted_trees_without_early_stopping() {
+        let run = boosting(0, 0.);
+        let FittedModel::Trees(f) = &run.fitted else { panic!() };
+        assert_eq!(f.trees.len(), 60);
+        assert_eq!(exported_estimators(&python(&run)), 60);
+    }
+    #[test]
+    fn exported_estimator_count_equals_fitted_trees_after_early_stopping() {
+        let run = boosting(1, 0.5);
+        let FittedModel::Trees(f) = &run.fitted else { panic!() };
+        assert!(f.trees.len() < 60, "early stopping did not trigger: {}", f.trees.len());
+        let code = python(&run);
+        assert_eq!(exported_estimators(&code), f.trees.len());
+        assert!(code.contains("early stopping ended the native fit"));
+    }
+}
 #[cfg(test)]
 mod execution_tests {
     use super::*;
