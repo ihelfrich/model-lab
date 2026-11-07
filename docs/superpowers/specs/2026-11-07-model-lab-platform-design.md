@@ -304,6 +304,14 @@ causal estimators via PyFixest and DoubleML.
 - The SQLite schema for the learner record.
 - The pixi environment split and how the pixi binary is bundled and
   updated.
+- CI (Dr. Helfrich, 2026-11-07): a public GitHub repository, so macOS and
+  Windows runners are free. Before the first push the repository must be
+  cleared for publication: `delivery-readiness-2026-11-03.json` names a
+  student delivery folder; the design document names a student; the three
+  course-data CSVs in `examples/` (income, diamonds, Florida communities)
+  carry no verified redistribution licence per `README.txt` and must be
+  replaced by synthetic or openly licensed data, or removed from the
+  public tree, before publishing. Not yet done; paused at his request.
 - Signing: ad-hoc remains until a Developer ID is approved; the design
   must not depend on notarization but must be ready for it.
 - Order of implementation inside Phase 1, except that the engine crate
