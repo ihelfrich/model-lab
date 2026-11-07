@@ -14,6 +14,7 @@ pub enum LinearMethod {
     Lasso,
     ElasticNet,
 }
+#[cfg_attr(not(feature = "acceptance"), allow(dead_code))]
 impl LinearMethod {
     pub const ALL: [Self; 5] = [
         Self::Ols,
@@ -236,6 +237,18 @@ fn snapshot(
         beta: beta.to_vec(),
         objective: objective(x, y, intercept, beta, cfg),
         stationarity,
+    }
+}
+
+/// Append a solver warning instead of replacing an earlier one, so a rank
+/// deficiency is still reported when a later stationarity warning follows.
+fn note(warning: &mut Option<String>, text: String) {
+    match warning {
+        Some(existing) => {
+            existing.push(' ');
+            existing.push_str(&text);
+        }
+        None => *warning = Some(text),
     }
 }
 
@@ -498,7 +511,7 @@ pub fn fit(
             }
             converged = steps.last().unwrap().stationarity <= cfg.tolerance * (1. + residual0);
             if !converged {
-                warning=Some("Least-squares stationarity is above tolerance; inspect predictor conditioning and scaling.".into());
+                note(&mut warning, "Least-squares stationarity is above tolerance; inspect predictor conditioning and scaling.".into());
             }
         }
         LinearMethod::Ridge | LinearMethod::Lasso | LinearMethod::ElasticNet => {
@@ -573,18 +586,23 @@ pub fn fit(
                 }
             }
             if !converged {
-                warning=Some(format!("Iteration limit reached. KKT residual {:.3e}; estimates have not met the requested tolerance.",steps.last().unwrap().stationarity));
+                note(&mut warning, format!("Iteration limit reached. KKT residual {:.3e}; estimates have not met the requested tolerance.",steps.last().unwrap().stationarity));
             }
         }
         LinearMethod::Logistic => {
             let mut b0 = intercept;
-            for iteration in 1..=cfg.max_iterations.min(300) {
+            // Scale-aware stopping rule, as for the least-squares solvers: the
+            // score must fall to tolerance × (1 + initial score magnitude).
+            let mut score_scale: Option<f64> = None;
+            let mut halted = false;
+            for iteration in 1..=cfg.max_iterations {
                 if cancel.load(Ordering::Relaxed) {
                     return Err("Fit canceled.".into());
                 }
                 let g = score(&x, &y, b0, &beta, true);
                 let residual = g.iter().map(|v| v.abs()).fold(0., f64::max);
-                if residual <= cfg.tolerance {
+                let threshold = cfg.tolerance * (1. + *score_scale.get_or_insert(residual));
+                if residual <= threshold {
                     converged = true;
                     break;
                 }
@@ -602,10 +620,11 @@ pub fn fit(
                     }
                 }
                 let Some(direction) = positive_solve(&h, &g) else {
-                    warning = Some(
+                    note(&mut warning, 
                         "Newton system is numerically singular; no converged likelihood estimate."
                             .into(),
                     );
+                    halted = true;
                     break;
                 };
                 let old = objective(&x, &y, b0, &beta, &cfg);
@@ -627,9 +646,10 @@ pub fn fit(
                     step *= 0.5;
                 }
                 let Some((candidate0, candidate)) = accepted else {
-                    warning = Some(
+                    note(&mut warning, 
                         "Line search could not establish a decreasing likelihood objective.".into(),
                     );
+                    halted = true;
                     break;
                 };
                 b0 = candidate0;
@@ -649,16 +669,17 @@ pub fn fit(
                     .zip(&y)
                     .all(|(row, &target)| (2. * target - 1.) * (b0 + dot(row, &beta)) > 1e-7)
                 {
-                    warning=Some("Complete separation: a strict separating direction was found. No finite unpenalized maximum-likelihood estimate exists.".into());
+                    note(&mut warning, "Complete separation: a strict separating direction was found. No finite unpenalized maximum-likelihood estimate exists.".into());
+                    halted = true;
                     break;
                 }
-                if residual <= cfg.tolerance {
+                if residual <= threshold {
                     converged = true;
                     break;
                 }
             }
-            if !converged && warning.is_none() {
-                warning=Some("Logistic solver reached its iteration limit without satisfying the score tolerance.".into());
+            if !converged && !halted {
+                note(&mut warning, "Logistic solver reached its iteration limit without satisfying the score tolerance.".into());
             }
         }
     }
@@ -850,5 +871,124 @@ mod tests {
         .is_err());
         let c = Arc::new(AtomicBool::new(true));
         assert!(fit(&d, &[0, 1, 2, 3], LinearConfig::default(), c).is_err());
+    }
+    /// Three correlated predictors; the KKT conditions are recomputed here from
+    /// the transformed training data without calling the solver's own `kkt`.
+    fn three_predictor_data() -> Data {
+        let mut rows = vec![];
+        let mut y = vec![];
+        let mut state = 0.37_f64;
+        for i in 0..40 {
+            state = (state * 7.31 + 0.19).fract();
+            let a = (i as f64) / 10. - 2. + state;
+            let b = 0.5 * a + (state - 0.5) * 2.;
+            let c = (i % 5) as f64 - 2.;
+            rows.push(vec![a, b, c]);
+            y.push(1.5 * a - 0.7 * b + 0.2 * c + 0.3 * (state - 0.5));
+        }
+        Data {
+            names: vec!["a".into(), "b".into(), "c".into()],
+            target: "y".into(),
+            x: rows,
+            y,
+        }
+    }
+    fn independent_kkt_residual(f: &LinearFit, data: &Data, train: &[usize]) -> f64 {
+        let step = f.step(usize::MAX);
+        let z = train
+            .iter()
+            .map(|&i| {
+                data.x[i]
+                    .iter()
+                    .zip(&f.transform.means)
+                    .zip(&f.transform.scales)
+                    .map(|((v, m), s)| (v - m) / s)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let n = z.len() as f64;
+        let mix = f.config.method.mixture(f.config.mix);
+        let alpha = f.config.alpha;
+        let mut worst = 0_f64;
+        for j in 0..3 {
+            let mut grad = 0.;
+            for (row, &i) in z.iter().zip(train) {
+                let eta = step.intercept + row.iter().zip(&step.beta).map(|(a, b)| a * b).sum::<f64>();
+                grad += -(data.y[i] - eta) * row[j] / n;
+            }
+            let b = step.beta[j];
+            grad += alpha * (1. - mix) * b;
+            let violation = if b != 0. {
+                (grad + alpha * mix * b.signum()).abs()
+            } else {
+                (grad.abs() - alpha * mix).max(0.)
+            };
+            worst = worst.max(violation);
+        }
+        worst
+    }
+    #[test]
+    fn penalized_solutions_satisfy_kkt_with_three_predictors() {
+        let data = three_predictor_data();
+        let train = (0..40).collect::<Vec<_>>();
+        for (method, alpha, mix) in [
+            (LinearMethod::Ridge, 0.3, 0.),
+            (LinearMethod::Lasso, 0.05, 1.),
+            (LinearMethod::ElasticNet, 0.1, 0.5),
+        ] {
+            let f = fit(
+                &data,
+                &train,
+                LinearConfig {
+                    method,
+                    alpha,
+                    mix,
+                    standardize: true,
+                    tolerance: 1e-10,
+                    ..Default::default()
+                },
+                cancel(),
+            )
+            .unwrap();
+            assert!(f.converged, "{}", method.label());
+            let residual = independent_kkt_residual(&f, &data, &train);
+            assert!(residual < 1e-8, "{} KKT residual {residual}", method.label());
+        }
+    }
+    #[test]
+    fn logistic_honours_requested_iteration_limit_and_keeps_rank_warning() {
+        let data = three_predictor_data();
+        let labels = data.y.iter().map(|v| f64::from(*v > 0.)).collect::<Vec<_>>();
+        let mut rows = data.x.clone();
+        for row in &mut rows {
+            let a = row[0];
+            row.push(2. * a); // exact collinearity: rank 3 of 4
+        }
+        let d = Data {
+            names: vec!["a".into(), "b".into(), "c".into(), "a2".into()],
+            target: "y".into(),
+            x: rows,
+            y: labels,
+        };
+        let train = (0..40).collect::<Vec<_>>();
+        let f = fit(
+            &d,
+            &train,
+            LinearConfig {
+                method: LinearMethod::Logistic,
+                max_iterations: 2,
+                tolerance: 1e-14,
+                ..Default::default()
+            },
+            cancel(),
+        )
+        .unwrap();
+        assert!(f.steps.len() <= 3, "more Newton steps than requested: {}", f.steps.len());
+        let warning = f.warning.unwrap();
+        assert!(warning.contains("Rank"), "{warning}");
+        assert!(
+            warning.contains("iteration limit") || warning.contains("singular"),
+            "{warning}"
+        );
     }
 }
