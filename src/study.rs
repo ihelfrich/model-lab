@@ -280,6 +280,66 @@ pub struct StudyDocument {
     pub stop_reason: Option<String>,
 }
 impl StudyDocument {
+    /// Recompute bias, coefficient MSE, interval coverage and failure rate from
+    /// the replication records and require the worker's summary to agree. The
+    /// worker wrote the summary; this is the native, independent arithmetic.
+    /// `integrity_sha256` is a worker-side corruption check over its own JSON
+    /// serialization and is not recomputed here.
+    fn check_recomputed_summary(&self) -> Result<(), String> {
+        fn mean(values: &[f64]) -> Option<f64> {
+            if values.is_empty() {
+                None
+            } else {
+                Some(values.iter().sum::<f64>() / values.len() as f64)
+            }
+        }
+        fn agree(name: &str, metric: &Metric, values: &[f64]) -> Result<(), String> {
+            let expected = mean(values);
+            let close = match (metric.value, expected) {
+                (None, None) => true,
+                (Some(a), Some(b)) => (a - b).abs() <= 1e-9 * (1. + a.abs().max(b.abs())),
+                _ => false,
+            };
+            if metric.n != values.len() || !close {
+                return Err(format!(
+                    "Study summary {name} does not match the arithmetic of its records (reported {:?} over {}, recomputed {:?} over {}).",
+                    metric.value, metric.n, expected, values.len()
+                ));
+            }
+            Ok(())
+        }
+        for summary in &self.summary.methods {
+            let rows = self
+                .records
+                .iter()
+                .flat_map(|r| r.methods.iter())
+                .filter(|m| m.method_id == summary.method_id)
+                .collect::<Vec<_>>();
+            let valid = rows.iter().filter(|m| m.status == "completed").collect::<Vec<_>>();
+            let errors = valid
+                .iter()
+                .filter_map(|m| m.estimate.map(|b| b - m.truth))
+                .collect::<Vec<_>>();
+            let squared = errors.iter().map(|e| e * e).collect::<Vec<_>>();
+            let intervals = valid
+                .iter()
+                .filter(|m| m.lower.is_some() && m.upper.is_some())
+                .collect::<Vec<_>>();
+            let cover = intervals
+                .iter()
+                .map(|m| f64::from(m.lower.unwrap() <= m.truth && m.truth <= m.upper.unwrap()))
+                .collect::<Vec<_>>();
+            let failures = rows
+                .iter()
+                .map(|m| f64::from(m.status != "completed"))
+                .collect::<Vec<_>>();
+            agree("bias", &summary.bias, &errors)?;
+            agree("coefficient MSE", &summary.mse, &squared)?;
+            agree("coverage among valid intervals", &summary.coverage_valid_intervals, &cover)?;
+            agree("failure rate", &summary.failure_rate, &failures)?;
+        }
+        Ok(())
+    }
     pub fn validate(&self, entry: &StudyRef) -> Result<(), String> {
         self.spec.validate()?;
         if self.schema_version != 2
@@ -404,6 +464,7 @@ impl StudyDocument {
                 return Err("Failure denominators do not match the retained results.".into());
             }
         }
+        self.check_recomputed_summary()?;
         if !matches!(self.status.as_str(), "running" | "partial" | "completed")
             || (self.status == "completed"
                 && self.summary.completed_replications != self.spec.replications)

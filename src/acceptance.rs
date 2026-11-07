@@ -42,12 +42,20 @@ pub fn self_test() -> Result<(), String> {
     let details=std::process::Command::new(&python).args(["-I","-c","import json,sys,sklearn; print(json.dumps({'prefix':sys.prefix,'python':sys.version.split()[0],'sklearn':sklearn.__version__}))"]).output().map_err(|e|e.to_string())?;
     let runtime: serde_json::Value =
         serde_json::from_slice(&details.stdout).map_err(|e| e.to_string())?;
-    if cfg!(target_os = "windows") {
-        let executable = std::env::current_exe().map_err(|e| e.to_string())?;
-        let expected = executable.parent().unwrap().join("Python");
-        if !Path::new(runtime["prefix"].as_str().unwrap_or("")).starts_with(&expected) {
-            return Err("Packaged Python is not using the relocated runtime".into());
-        }
+    // Measured, not assumed: is the interpreter the one inside this package?
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    let expected = if cfg!(target_os = "windows") {
+        executable.parent().unwrap().join("Python")
+    } else {
+        executable.parent().unwrap().join("../Resources/Python")
+    };
+    let prefix = Path::new(runtime["prefix"].as_str().unwrap_or(""));
+    let runtime_relocated = match (prefix.canonicalize(), expected.canonicalize()) {
+        (Ok(a), Ok(b)) => a.starts_with(&b),
+        _ => false,
+    };
+    if cfg!(target_os = "windows") && !runtime_relocated {
+        return Err("Packaged Python is not using the relocated runtime".into());
     }
     for method in crate::model::Method::ALL {
         for library in [false, true] {
@@ -161,7 +169,7 @@ pub fn self_test() -> Result<(), String> {
     if crate::quiz::questions().len() != 100 {
         return Err("Expected100 questions".into());
     }
-    let result = json!({"status":"passed","os":std::env::consts::OS,"arch":std::env::consts::ARCH,"native_models":methods,"python_models":python_methods,"python_version":runtime["python"],"sklearn_version":runtime["sklearn"],"runtime_relocated":cfg!(target_os="windows"),"questions":100,"code_questions":crate::quiz::questions().iter().filter(|q|!q.code.is_empty()).count()});
+    let result = json!({"status":"passed","os":std::env::consts::OS,"arch":std::env::consts::ARCH,"native_models":methods,"python_models":python_methods,"python_version":runtime["python"],"sklearn_version":runtime["sklearn"],"runtime_relocated":runtime_relocated,"runtime_prefix":runtime["prefix"],"questions":100,"code_questions":crate::quiz::questions().iter().filter(|q|!q.code.is_empty()).count()});
     if let Some(path) = argument("--report") {
         write(&path, &result)?;
     }

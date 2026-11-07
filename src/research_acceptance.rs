@@ -149,8 +149,16 @@ pub fn self_test() -> Result<(), String> {
         return Err("Scientific runtime was not loaded from the packaged Python directory.".into());
     }
     let report = json!({"status":"passed","os":std::env::consts::OS,"engine_version":env!("CARGO_PKG_VERSION"),"protocol_version":adapter::SCHEMA,
-        "worker_source_verified":true,"request_verified":true,"capability_models":9,"inference":true,"nested_resampling":true,"reserved_test_unscored":true,
-        "explicit_test_disclosure_recorded":true,"project_restored":true,"exported_reproduction":verification,"export_files":exported["result"]["files"],
+        "capability_models":catalog["result"]["models"].as_array().map_or(0,Vec::len),
+        "worker_sha256_declared":catalog["worker_sha256"],
+        "inference_training_rows":inference["result"]["n"],
+        "inference_request_sha256":inference["request_sha256"],
+        "resampling_folds":sealed["result"]["folds"].as_array().map_or(0,Vec::len),
+        "reserved_test_loss_before_evaluation":sealed["result"]["test_loss"],
+        "test_disclosures_recorded":project.disclosures.len(),
+        "restored_history_entries":restored.history.len(),
+        "exported_reproduction":verification,
+        "receipt_scope":"Values observed during this run of the harness; a passed status means each gate in research_acceptance::self_test held. Hashes are integrity checks, not authentication.","export_files":exported["result"]["files"],
         "runtime_relocated":relocated,"python":info["python"],"versions":catalog["versions"]});
     let _ = std::fs::remove_dir_all(&base);
     if let Some(path) = acceptance::argument("--report") {
