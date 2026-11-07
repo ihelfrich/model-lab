@@ -101,6 +101,7 @@ impl Research {
             "random"
         });
     }
+    #[cfg_attr(not(feature = "acceptance"), allow(dead_code))]
     pub fn show_teacher(&mut self) {
         self.tab = 4;
         self.teaching_revealed = true;

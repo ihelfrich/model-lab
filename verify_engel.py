@@ -2,6 +2,7 @@
 
 Reference estimates are computation checks, never labelled population truth.
 Requires --binary; uses the project's installed statsmodels dataset, no download.
+The binary must be built with `--features acceptance`; shipped builds omit the flags.
 """
 import argparse
 import csv

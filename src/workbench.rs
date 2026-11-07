@@ -28,6 +28,7 @@ const VIEWS: [&str; 8] = [
 ];
 type FitResult = (u64, Result<Run, String>);
 type PathResult = (String, Result<Vec<PenaltyPoint>, String>);
+#[cfg(feature = "acceptance")]
 struct StudyNativeCheck {
     step: usize,
     frames: usize,
@@ -75,10 +76,15 @@ pub struct Workbench {
     save_path: String,
     legacy: crate::ui::Lab,
     legacy_open: bool,
+    #[cfg(feature = "acceptance")]
     smoke_frame: usize,
+    #[cfg(feature = "acceptance")]
     smoke_image: bool,
+    #[cfg(feature = "acceptance")]
     research_smoke_state: Option<(usize, usize, PathBuf)>,
+    #[cfg(feature = "acceptance")]
     capture: Option<crate::acceptance::CaptureGate>,
+    #[cfg(feature = "acceptance")]
     study_smoke_state: Option<StudyNativeCheck>,
 }
 impl Workbench {
@@ -126,14 +132,19 @@ impl Workbench {
             save_path: String::new(),
             legacy,
             legacy_open: false,
+            #[cfg(feature = "acceptance")]
             smoke_frame: 0,
+            #[cfg(feature = "acceptance")]
             smoke_image: false,
+            #[cfg(feature = "acceptance")]
             research_smoke_state: None,
+            #[cfg(feature = "acceptance")]
             capture: None,
+            #[cfg(feature = "acceptance")]
             study_smoke_state: None,
         };
-        if let Some(path) = crate::acceptance::argument("--decision-evidence") {
-            app.decision.load(path.to_string_lossy().into_owned());
+        if let Some(path) = std::env::args().skip_while(|a| a != "--decision-evidence").nth(1) {
+            app.decision.load(path);
             app.view = 7;
         }
         app.fit();
@@ -1707,6 +1718,7 @@ impl Workbench {
         }
     }
 
+    #[cfg(feature = "acceptance")]
     fn study_workflow_smoke(&mut self, ctx: &egui::Context) {
         ctx.request_repaint_after(std::time::Duration::from_millis(20));
         let mut state = self
@@ -1890,6 +1902,7 @@ impl Workbench {
         }
         self.study_smoke_state = Some(state);
     }
+    #[cfg(feature = "acceptance")]
     fn research_workflow_smoke(&mut self, ctx: &egui::Context) {
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
         let (mut step, mut frames, directory) =
@@ -2040,41 +2053,11 @@ impl Workbench {
         self.research_smoke_state = Some((step, frames, directory));
     }
 }
-impl eframe::App for Workbench {
-    fn ui(&mut self, root: &mut egui::Ui, frame: &mut eframe::Frame) {
-        let ctx = root.ctx().clone();
-        if self.legacy_open {
-            self.research.poll(&ctx);
-            self.legacy.ui(root, frame);
-            egui::Window::new("Model workbench")
-                .id(egui::Id::new("return_to_workbench"))
-                .anchor(egui::Align2::RIGHT_TOP, [-15., 8.])
-                .resizable(false)
-                .collapsible(false)
-                .show(&ctx, |ui| {
-                    if ui.button("Return to model workspace").clicked() {
-                        self.legacy_open = false;
-                        ctx.set_style_of(egui::Theme::Dark, v::style());
-                    }
-                });
-            return;
-        }
-        self.poll(&ctx);
-        if self.view != 7 { self.sidebar(root); }
-        if self.view < 6 {
-            self.controls(root);
-        }
-        self.header(root);
-        self.footer(root);
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(15,21,30)).inner_margin(18.)).show(root,|ui|{
-            if !self.error.is_empty(){v::panel().show(ui,|ui|{ui.colored_label(v::RED,&self.error);});ui.add_space(8.);}
-            if let Some(run)=self.run.clone(){
-                if self.view!=7 && (run.config!=self.cfg||self.receiver.is_some()||self.due.is_some()){ui.label(RichText::new(format!("Showing the previous fitted experiment: {}. New settings are being prepared.",run.config.model.descriptor().name)).size(12.).color(v::AMBER));}
-                if let Some(warning)=run.warning(){ui.colored_label(v::AMBER,warning);}
-                if !ctx.egui_wants_keyboard_input(){ctx.input(|i|{if i.key_pressed(egui::Key::ArrowLeft){self.stage=self.stage.saturating_sub(1);self.playing=false;}if i.key_pressed(egui::Key::ArrowRight){self.stage=(self.stage+1).min(run.last_stage());self.playing=false;}});}
-                egui::ScrollArea::vertical().id_salt(("workbench_content",self.view)).auto_shrink([false,false]).show(ui,|ui|{match self.view{0=>self.explore(ui,&run),1=>self.coefficients(ui,&run),2=>self.optimization(ui,&run),3=>self.learn(ui,&run),4=>self.code_view(ui,&run),5=>self.data_view(ui,&run),7=>self.decision.ui(ui),_=>{self.research.synchronize(&run,self.table.as_ref(),self.revision);self.research.ui(ui);}}});
-            }else{ui.centered_and_justified(|ui|{ui.spinner();});}
-        });
+impl Workbench {
+    /// Native smoke-test workflows driven by `--workbench-ui-smoke-test`,
+    /// `--research-ui-smoke-test` and `--study-ui-smoke-test`.
+    #[cfg(feature = "acceptance")]
+    fn smoke_hooks(&mut self, ctx: &egui::Context) {
         if std::env::args().any(|a| a == "--study-ui-smoke-test") && self.run.is_some() {
             self.study_workflow_smoke(&ctx);
         }
@@ -2133,6 +2116,46 @@ impl eframe::App for Workbench {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
         }
+    }
+    #[cfg(not(feature = "acceptance"))]
+    fn smoke_hooks(&mut self, _ctx: &egui::Context) {}
+}
+impl eframe::App for Workbench {
+    fn ui(&mut self, root: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let ctx = root.ctx().clone();
+        if self.legacy_open {
+            self.research.poll(&ctx);
+            self.legacy.ui(root, frame);
+            egui::Window::new("Model workbench")
+                .id(egui::Id::new("return_to_workbench"))
+                .anchor(egui::Align2::RIGHT_TOP, [-15., 8.])
+                .resizable(false)
+                .collapsible(false)
+                .show(&ctx, |ui| {
+                    if ui.button("Return to model workspace").clicked() {
+                        self.legacy_open = false;
+                        ctx.set_style_of(egui::Theme::Dark, v::style());
+                    }
+                });
+            return;
+        }
+        self.poll(&ctx);
+        if self.view != 7 { self.sidebar(root); }
+        if self.view < 6 {
+            self.controls(root);
+        }
+        self.header(root);
+        self.footer(root);
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(15,21,30)).inner_margin(18.)).show(root,|ui|{
+            if !self.error.is_empty(){v::panel().show(ui,|ui|{ui.colored_label(v::RED,&self.error);});ui.add_space(8.);}
+            if let Some(run)=self.run.clone(){
+                if self.view!=7 && (run.config!=self.cfg||self.receiver.is_some()||self.due.is_some()){ui.label(RichText::new(format!("Showing the previous fitted experiment: {}. New settings are being prepared.",run.config.model.descriptor().name)).size(12.).color(v::AMBER));}
+                if let Some(warning)=run.warning(){ui.colored_label(v::AMBER,warning);}
+                if !ctx.egui_wants_keyboard_input(){ctx.input(|i|{if i.key_pressed(egui::Key::ArrowLeft){self.stage=self.stage.saturating_sub(1);self.playing=false;}if i.key_pressed(egui::Key::ArrowRight){self.stage=(self.stage+1).min(run.last_stage());self.playing=false;}});}
+                egui::ScrollArea::vertical().id_salt(("workbench_content",self.view)).auto_shrink([false,false]).show(ui,|ui|{match self.view{0=>self.explore(ui,&run),1=>self.coefficients(ui,&run),2=>self.optimization(ui,&run),3=>self.learn(ui,&run),4=>self.code_view(ui,&run),5=>self.data_view(ui,&run),7=>self.decision.ui(ui),_=>{self.research.synchronize(&run,self.table.as_ref(),self.revision);self.research.ui(ui);}}});
+            }else{ui.centered_and_justified(|ui|{ui.spinner();});}
+        });
+        self.smoke_hooks(&ctx);
     }
 }
 impl Drop for Workbench {

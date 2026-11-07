@@ -1,4 +1,6 @@
-"""Independent NumPy/scikit-learn checks against actual native fixture output.
+"""
+The binary must be built with `--features acceptance`; shipped builds omit the flags.
+Independent NumPy/scikit-learn checks against actual native fixture output.
 
 Run with an existing scientific uv environment. The CLI fixture generator must
 be built first. This script does not install dependencies or alter student data.

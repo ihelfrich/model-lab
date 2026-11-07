@@ -1,4 +1,5 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+#[cfg(feature = "acceptance")]
 mod acceptance;
 mod adapter;
 mod animation;
@@ -13,18 +14,25 @@ mod model;
 mod playback;
 mod python;
 mod quiz;
+#[cfg(feature = "acceptance")]
 mod research_acceptance;
 mod research_ui;
 mod science;
 mod studio;
 mod study;
+#[cfg(feature = "acceptance")]
 mod study_acceptance;
 mod study_ui;
 mod teaching;
 mod ui;
 mod visuals;
 mod workbench;
-fn main() -> eframe::Result {
+/// Verification commands (`--self-test`, `--research-self-test`,
+/// `--study-self-test`, `--linear-fixtures`, `--adapter-catalog`,
+/// `--check-decision-evidence`). Compiled only with the `acceptance` feature so
+/// the shipped application carries no test harness.
+#[cfg(feature = "acceptance")]
+fn acceptance_commands() -> Option<eframe::Result> {
     if std::env::args().any(|a| a == "--study-self-test" || a == "--research-project-check") {
         let result = if std::env::args().any(|a| a == "--study-self-test") {
             study_acceptance::self_test()
@@ -39,7 +47,7 @@ fn main() -> eframe::Result {
             eprintln!("{error}");
             std::process::exit(1);
         }
-        return Ok(());
+        return Some(Ok(()));
     }
     if std::env::args().any(|a| a == "--research-request" || a == "--research-self-test") {
         let result = if std::env::args().any(|a| a == "--research-request") {
@@ -55,7 +63,7 @@ fn main() -> eframe::Result {
             eprintln!("{error}");
             std::process::exit(1);
         }
-        return Ok(());
+        return Some(Ok(()));
     }
     if std::env::args().any(|a| a == "--check-decision-evidence") {
         let checked = acceptance::argument("--check-decision-evidence")
@@ -71,30 +79,41 @@ fn main() -> eframe::Result {
             })),
             Err(error) => { eprintln!("{error}"); std::process::exit(1); }
         }
-        return Ok(());
+        return Some(Ok(()));
     }
     if std::env::args().any(|a| a == "--adapter-catalog") {
         if let Some(path) = acceptance::argument("--report") {
-            acceptance::write(&path, &adapter::catalogue())
-                .map_err(|e| eframe::Error::AppCreation(e.into()))?;
+            if let Err(e) = acceptance::write(&path, &adapter::catalogue()) {
+                return Some(Err(eframe::Error::AppCreation(e.into())));
+            }
         } else {
             println!("{}", adapter::catalogue());
         }
-        return Ok(());
+        return Some(Ok(()));
     }
     if std::env::args().any(|a| a == "--linear-fixtures") {
         if let Err(e) = acceptance::linear_fixtures() {
             eprintln!("{e}");
             std::process::exit(1);
         }
-        return Ok(());
+        return Some(Ok(()));
     }
     if std::env::args().any(|a| a == "--self-test") {
         if let Err(e) = acceptance::self_test() {
             eprintln!("{e}");
             std::process::exit(1);
         }
-        return Ok(());
+        return Some(Ok(()));
+    }
+    None
+}
+#[cfg(not(feature = "acceptance"))]
+fn acceptance_commands() -> Option<eframe::Result> {
+    None
+}
+fn main() -> eframe::Result {
+    if let Some(result) = acceptance_commands() {
+        return result;
     }
     let mut options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()

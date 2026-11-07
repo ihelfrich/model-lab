@@ -3,6 +3,7 @@
 Exercises the real viewport Close path after all nine models and seven views.
 This verifies that path, not every OS version or accessibility configuration.
 Uses synthetic examples only; does not read a user's datasets or messages.
+The binary must be built with `--features acceptance`; shipped builds omit the flags.
 """
 import argparse
 import json

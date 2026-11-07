@@ -65,7 +65,9 @@ pub struct Lab {
     quiz_order: Vec<usize>,
     quiz_shuffle: u64,
     quiz_review_only: bool,
+    #[cfg(feature = "acceptance")]
     smoke_frames: usize,
+    #[cfg(feature = "acceptance")]
     smoke_screenshot: bool,
 }
 impl Lab {
@@ -124,7 +126,9 @@ impl Lab {
             quiz_order: (0..quiz::questions().len()).collect(),
             quiz_shuffle: 0,
             quiz_review_only: false,
+            #[cfg(feature = "acceptance")]
             smoke_frames: 0,
+            #[cfg(feature = "acceptance")]
             smoke_screenshot: false,
         };
         app.start_fit();
@@ -2538,6 +2542,57 @@ impl Lab {
     }
 }
 
+impl Lab {
+    /// Legacy smoke-test workflow driven by `--ui-smoke-test`.
+    #[cfg(feature = "acceptance")]
+    fn smoke_hooks(&mut self, ctx: &egui::Context) {
+        if std::env::args().any(|a| a == "--ui-smoke-test") {
+            if self.fitted.is_some() {
+                self.smoke_frames += 1;
+            }
+            for event in ctx.input(|i| i.events.clone()) {
+                if let egui::Event::Screenshot { image, .. } = event {
+                    if let Some(path) = crate::acceptance::argument("--screenshot") {
+                        self.smoke_screenshot = crate::acceptance::save_png(&path, &image).is_ok();
+                    }
+                }
+            }
+            match self.smoke_frames {
+                5 => self.tab = 7,
+                10 => self.tab = 8,
+                15 => self.tab = 5,
+                20 => {
+                    self.tab = 4;
+                    self.quiz_index = 90;
+                }
+                25 => {
+                    self.tab = 0;
+                    self.stage = 3.min(self.fitted.as_ref().unwrap().trees.len());
+                    self.refresh_stage();
+                }
+                30 => {
+                    self.tab = 6;
+                    self.settings_layer = 2;
+                }
+                35 => ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(
+                    egui::UserData::default(),
+                )),
+                _ => {}
+            }
+            if self.smoke_frames > 40 && self.smoke_screenshot {
+                if let Some(path) = crate::acceptance::argument("--report") {
+                    let report = serde_json::json!({"status":"passed","os":std::env::consts::OS,"native_window_frames":self.smoke_frames,"views_rendered":["explore","science","experiments","python","quiz-code-question","tree-details","encoder-controls"],"screenshot":true,"question_count":quiz::questions().len()});
+                    if crate::acceptance::write(&path, &report).is_ok() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                }
+            }
+            ctx.request_repaint_after(std::time::Duration::from_millis(25));
+        }
+    }
+    #[cfg(not(feature = "acceptance"))]
+    fn smoke_hooks(&mut self, _ctx: &egui::Context) {}
+}
 impl eframe::App for Lab {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
@@ -2640,49 +2695,7 @@ impl eframe::App for Lab {
                 }
             });
         });
-        if std::env::args().any(|a| a == "--ui-smoke-test") {
-            if self.fitted.is_some() {
-                self.smoke_frames += 1;
-            }
-            for event in ctx.input(|i| i.events.clone()) {
-                if let egui::Event::Screenshot { image, .. } = event {
-                    if let Some(path) = crate::acceptance::argument("--screenshot") {
-                        self.smoke_screenshot = crate::acceptance::save_png(&path, &image).is_ok();
-                    }
-                }
-            }
-            match self.smoke_frames {
-                5 => self.tab = 7,
-                10 => self.tab = 8,
-                15 => self.tab = 5,
-                20 => {
-                    self.tab = 4;
-                    self.quiz_index = 90;
-                }
-                25 => {
-                    self.tab = 0;
-                    self.stage = 3.min(self.fitted.as_ref().unwrap().trees.len());
-                    self.refresh_stage();
-                }
-                30 => {
-                    self.tab = 6;
-                    self.settings_layer = 2;
-                }
-                35 => ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(
-                    egui::UserData::default(),
-                )),
-                _ => {}
-            }
-            if self.smoke_frames > 40 && self.smoke_screenshot {
-                if let Some(path) = crate::acceptance::argument("--report") {
-                    let report = serde_json::json!({"status":"passed","os":std::env::consts::OS,"native_window_frames":self.smoke_frames,"views_rendered":["explore","science","experiments","python","quiz-code-question","tree-details","encoder-controls"],"screenshot":true,"question_count":quiz::questions().len()});
-                    if crate::acceptance::write(&path, &report).is_ok() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                }
-            }
-            ctx.request_repaint_after(std::time::Duration::from_millis(25));
-        }
+        self.smoke_hooks(&ctx);
     }
 }
 

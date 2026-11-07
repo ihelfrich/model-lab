@@ -24,9 +24,9 @@ jobs:
       - name: Verify authored questions
         run: python verify_question_bank.py
       - name: Test Rust engine and bank
-        run: cargo test --target x86_64-pc-windows-msvc --locked
-      - name: Build native Windows executable
-        run: cargo build --release --target x86_64-pc-windows-msvc --locked
+        run: cargo test --features acceptance --target x86_64-pc-windows-msvc --locked
+      - name: Build verification executable (acceptance harness compiled in)
+        run: cargo build --release --features acceptance --target x86_64-pc-windows-msvc --locked
       - name: Assemble relocatable complete package
         shell: pwsh
         run: |
@@ -143,9 +143,19 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "Study native exited $($p.ExitCode)" }
           $r = Get-Content $report | ConvertFrom-Json
           if ($r.workflow_status -ne 'passed' -or $r.capture_status -ne 'captured') { throw 'Workflow and screenshot acceptance are separate; one is incomplete' }
+      - name: Replace the verification build with the shipped executable
+        shell: pwsh
+        run: |
+          $verified = Get-FileHash 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe' -Algorithm SHA256
+          cargo build --release --target x86_64-pc-windows-msvc --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Shipped executable build failed' }
+          Copy-Item target/x86_64-pc-windows-msvc/release/tree-ensemble-lab.exe 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe' -Force
+          $shipped = Get-FileHash 'dist/Tree Ensemble Lab Windows/Tree Ensemble Lab.exe' -Algorithm SHA256
+          @{ verification_build_sha256 = $verified.Hash; shipped_build_sha256 = $shipped.Hash; note = 'Checks above ran on the verification build (same source, acceptance feature on). The shipped executable is the same source without the harness; it was not itself exercised by the checks.' } | ConvertTo-Json | Set-Content dist/windows-executable-hashes.json
       - name: Package ZIP and checksums
         shell: pwsh
         run: |
+          Copy-Item dist/windows-executable-hashes.json 'dist/Tree Ensemble Lab Windows/'
           Copy-Item dist/windows-engine-acceptance.json 'dist/Tree Ensemble Lab Windows/'
           Copy-Item dist/windows-ui-acceptance.json 'dist/Tree Ensemble Lab Windows/'
           Copy-Item dist/windows-workbench-acceptance.json 'dist/Tree Ensemble Lab Windows/'
