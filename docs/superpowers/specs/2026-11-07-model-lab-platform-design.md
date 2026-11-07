@@ -161,8 +161,14 @@ backend; the UI is web technology in the Tauri webview.
 
 Designer's calls, open to revision:
 
-- Mathematics: KaTeX, server-side rendered at lesson load so pages do not
-  reflow, with a plain-text alternative in the DOM.
+- Mathematics: KaTeX rendered in the webview when a lesson loads, with a
+  plain-text alternative in the DOM. Lessons are loaded at runtime from a
+  lessons directory the instructor can write to (bundled lessons plus a
+  user lessons folder); no rebuild to add one. Lesson Markdown, templates
+  and experiment specs are untrusted input: Markdown is sanitized, the
+  template syntax is plain substitution with a format spec
+  (`{{coef.x1:.3f}}`), no conditionals or expressions, and experiment
+  specs are validated against a schema before anything runs.
 - Plots: Vega-Lite specifications produced by the Rust side from
   experiment data, rendered in the webview. Each plot carries its data as
   an accessible table (toggle), supports zoom/pan/export (SVG, PNG, CSV),
@@ -185,12 +191,50 @@ Designer's calls, open to revision:
   derivation), Run (experiment controls, plots, replay of recorded
   states, observation arithmetic), Check (predict-before-reveal, questions,
   the learner's record for this lesson).
+- Mastery and prerequisites: a concept counts as mastered when the learner
+  answers a question tagged with it correctly in two different lessons or
+  sessions, each after a committed prediction. Prerequisites advise (the
+  curriculum shows what a lesson assumes); they never gate navigation.
 - Learner record: a local SQLite database (one file per learner profile)
   holding attempts, predictions, answers, timings and mastery per concept.
   Exportable as JSON. Never uploaded.
 - Theme: OS light/dark, reduced motion honoured, text scalable.
 - Instructor mode: a toggle that reveals instructor notes, answer keys and
   the simulation truth, and that produces the instructor packet.
+
+## Phase 1 scope (designer's calls after the builder check)
+
+- **Which lessons run natively.** Lessons 1–5, 7 and 8 run on the engine
+  crate with nothing downloaded. Lessons 6 (inference), 9 and 10
+  (simulation studies) run on the `scientific` pixi environment, which
+  the app offers to download when the learner reaches them, stating the
+  size. Porting sandwich/cluster/HAC inference and the study machinery
+  into the engine crate is a later option, not Phase 1.
+- **Every job goes through the supervisor.** The native engine runs as a
+  supervised sidecar (the same binary in a `--engine-job` mode) for any
+  experiment above the interactive bound (5,000 rows today), with stage
+  checkpoints for boosting and forests, which are naturally stage-wise.
+  Small interactive fits may still run in-process on a thread with the
+  existing cancel flag. The 50,000-row job in "done" is therefore a native
+  boosting job under the supervisor; the interactive row bound is raised
+  only for supervised jobs.
+- **Engine extraction is a pure move first.** The numerical debts
+  (reserved test split, one partition, per-tree RNG streams, data-driven
+  penalty grid, one median) land afterwards as separately versioned
+  changes with regenerated fixtures and a changed-results log. Saved 0.8
+  experiments open read-only with a notice naming the change; they are
+  not replayed bit-for-bit. No 0.6–0.8 project was delivered outside this
+  machine (the student received the 0.5 tree lab only), so this
+  compatibility is a courtesy, not an obligation.
+- **Old studies.** 0.8 study checkpoints and research projects are
+  displayed read-only from their JSON. Full resume or re-export of a 0.8
+  study is not supported in the new shell; the egui build remains
+  available for that during the transition.
+- **Practice editor.** Included in Phase 1, running under the supervisor
+  with the nonce-tagged protocol from day one. It needs a Python, so it
+  depends on a minimal `python` pixi environment (interpreter and
+  standard library only, small) separate from `scientific`. Lessons 1–4
+  do not require it.
 
 ## The first lesson set
 
