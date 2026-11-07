@@ -187,7 +187,7 @@ Designer's calls, open to revision:
   which is how "the lesson's numbers change when the experiment changes"
   is achieved without code.
 - Navigation: one route model (curriculum → lesson → panels), no
-  integer-coded tabs. Three panels per lesson: Read (text, math,
+  integer-coded tabs. A Research route is added in Phase 2. Three panels per lesson: Read (text, math,
   derivation), Run (experiment controls, plots, replay of recorded
   states, observation arithmetic), Check (predict-before-reveal, questions,
   the learner's record for this lesson).
@@ -230,6 +230,15 @@ Designer's calls, open to revision:
   displayed read-only from their JSON. Full resume or re-export of a 0.8
   study is not supported in the new shell; the egui build remains
   available for that during the transition.
+- **Research workbench (Dr. Helfrich, 2026-11-07: lessons first).** The
+  free-form research route (own CSV, formula grammar, covariance choice,
+  resampling designs, reproducible bundles with `reproduce.py` and LaTeX
+  report) is not in Phase 1. It returns in Phase 2 as a "Research" route
+  alongside the 0.9 fixed-effects/IV work. Its backends migrate to the
+  supervisor in Phase 1 regardless, because lessons 6, 9 and 10 use them.
+  Until then the egui build remains the research tool, and
+  `verify_engel.py`, `verify_research.py` and `verify_studies.py` keep
+  running against the acceptance build of that binary.
 - **Practice editor.** Included in Phase 1, running under the supervisor
   with the nonce-tagged protocol from day one. It needs a Python, so it
   depends on a minimal `python` pixi environment (interpreter and
