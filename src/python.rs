@@ -22,61 +22,49 @@ fn unique_id() -> String {
         RUN_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     )
 }
+/// The interpreter this build may use without being told: an explicit
+/// `MODEL_LAB_PYTHON`/`TREE_LAB_PYTHON` override, the runtime packaged beside
+/// the executable, or, in debug builds only, the project's own `.venv`.
+/// A release build with no bundled runtime returns an empty string, and
+/// launching reports that a runtime must be chosen. It never scans caches,
+/// Homebrew or `PATH`, so a shipped binary cannot silently depend on the host.
 pub fn default_interpreter() -> String {
-    if let Some(p) = std::env::var_os("TREE_LAB_PYTHON") {
-        return p.to_string_lossy().into_owned();
-    }
-    if cfg!(target_os = "windows") {
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(parent) = exe.parent() {
-                let bundled = parent.join("Python/python.exe");
-                if bundled.is_file() {
-                    return bundled.to_string_lossy().into_owned();
-                }
-            }
+    for key in ["MODEL_LAB_PYTHON", "TREE_LAB_PYTHON"] {
+        if let Some(p) = std::env::var_os(key) {
+            return p.to_string_lossy().into_owned();
         }
     }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            let bundled = parent.join("../Resources/Python/bin/python3");
-            if bundled.is_file() {
-                return bundled.to_string_lossy().into_owned();
-            }
+    if let Some(bundled) = bundled_interpreter() {
+        return bundled;
+    }
+    #[cfg(debug_assertions)]
+    {
+        let local = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(if cfg!(windows) {
+            ".venv/Scripts/python.exe"
+        } else {
+            ".venv/bin/python"
+        });
+        if local.is_file() {
+            return local.to_string_lossy().into_owned();
         }
     }
-    let local = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(if cfg!(windows) {
-        ".venv/Scripts/python.exe"
-    } else {
-        ".venv/bin/python"
-    });
-    if local.is_file() {
-        return local.to_string_lossy().into_owned();
-    }
-    if cfg!(target_os = "macos") {
-        // Reuse an existing UV class environment; inspect package metadata only.
-        if let Some(home_path) = std::env::var_os("HOME") {
-            if let Ok(entries) =
-                std::fs::read_dir(PathBuf::from(home_path).join(".cache/uv/archive-v0"))
-            {
-                for entry in entries.flatten().take(512) {
-                    let p = entry.path();
-                    if p.join("lib/python3.14/site-packages/sklearn/__init__.py")
-                        .is_file()
-                        && p.join("bin/python").is_file()
-                    {
-                        return p.join("bin/python").to_string_lossy().into_owned();
-                    }
-                }
-            }
-        }
-        if std::path::Path::new("/opt/homebrew/bin/python3").is_file() {
-            return "/opt/homebrew/bin/python3".into();
-        }
-        "python3".into()
-    } else {
-        "python".into()
-    }
+    String::new()
 }
+/// The Python runtime packaged with this executable, if present.
+pub fn bundled_interpreter() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let parent = exe.parent()?;
+    let candidates = if cfg!(target_os = "windows") {
+        vec![parent.join("Python/python.exe")]
+    } else {
+        vec![parent.join("../Resources/Python/bin/python3")]
+    };
+    candidates
+        .into_iter()
+        .find(|p| p.is_file())
+        .map(|p| p.to_string_lossy().into_owned())
+}
+pub const NO_INTERPRETER: &str = "No Python runtime is packaged with this build and none was chosen. Set MODEL_LAB_PYTHON or select an interpreter in the application.";
 
 pub fn generated(cfg: &Config) -> String {
     let count = if cfg.method == Method::Tree {
@@ -242,6 +230,10 @@ pub fn start(
     if let Err(e) = prepare {
         let _ = std::fs::remove_dir_all(&dir);
         return Err(e);
+    }
+    if interpreter.trim().is_empty() {
+        let _ = std::fs::remove_dir_all(&dir);
+        return Err(NO_INTERPRETER.into());
     }
     // No shell interpolation. Do not pass API tokens or the full inherited environment.
     let mut command = Command::new(interpreter.trim());

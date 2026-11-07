@@ -8,7 +8,6 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     io::{BufRead, BufReader},
-    path::PathBuf,
     process::{Command, Stdio},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -35,6 +34,7 @@ pub fn identity() -> String {
     )
 }
 
+#[cfg_attr(not(feature = "acceptance"), allow(dead_code))]
 pub trait ModelAdapter {
     fn id(&self) -> &'static str;
     fn manifest(&self) -> Value;
@@ -158,6 +158,7 @@ fn validate_header(r: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+#[cfg_attr(not(feature = "acceptance"), allow(dead_code))]
 pub fn catalogue() -> Value {
     json!({"schema_version":SCHEMA,"supported_protocols":[1,2],"adapters":[NativeAdapter.manifest(),ScientificAdapter.manifest(),StudyAdapter.manifest()]})
 }
@@ -211,6 +212,9 @@ impl Drop for Session {
     }
 }
 pub fn launch(request: Value, interpreter: String) -> Result<Session, String> {
+    if interpreter.trim().is_empty() {
+        return Err(crate::python::NO_INTERPRETER.into());
+    }
     let study = request["schema_version"] == 2;
     if study {
         StudyAdapter.validate(&request)?;
@@ -534,31 +538,7 @@ pub fn validate_payload(request: &Value, response: &Value) -> Result<(), String>
     Ok(())
 }
 pub fn default_interpreter() -> String {
-    if let Some(p) = std::env::var_os("MODEL_LAB_PYTHON") {
-        return p.to_string_lossy().into_owned();
-    }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            for p in [
-                parent.join("Python/python.exe"),
-                parent.join("../Resources/Python/bin/python3"),
-            ] {
-                if p.is_file() {
-                    return p.to_string_lossy().into_owned();
-                }
-            }
-        }
-    }
-    let local = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(if cfg!(windows) {
-        ".venv/Scripts/python.exe"
-    } else {
-        ".venv/bin/python"
-    });
-    if local.is_file() {
-        local.to_string_lossy().into_owned()
-    } else {
-        crate::python::default_interpreter()
-    }
+    crate::python::default_interpreter()
 }
 
 #[cfg(test)]
