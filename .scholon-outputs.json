@@ -2,8 +2,8 @@
   "projects": [
     {
       "id": "tree-ensemble-lab-rust-20261102",
-      "root": "/Users/ian/Documents/ChatGPT/Tutoring/outputs/tree-ensemble-lab-rust",
-      "description": "Original native tree and ensemble teaching app; generic code and synthetic data only"
+      "root": "/Users/ian/Developer/model-lab",
+      "description": "Model Lab: native teaching workbench for linear models, tree ensembles and simulation studies (git repo from 2026-11-07; archive of delivered 0.5-0.8 builds stays in the tutoring outputs folder)"
     }
   ],
   "assets": [
@@ -504,6 +504,27 @@
       "evidence": [
         "src/decision.rs"
       ],
+      "depends_on": []
+    },
+    {
+      "id": "model-lab-20261107.platform-design",
+      "project": "tree-ensemble-lab-rust-20261102",
+      "path": "docs/superpowers/specs/2026-11-07-model-lab-platform-design.md",
+      "kind": "research_note",
+      "title": "Model Lab platform design (Tauri shell, Rust engine crate, job supervisor, pixi environments, lessons as data)",
+      "summary": "Design document for turning the egui teaching workbench into a lesson-driven platform; records decisions of 2026-11-07 and the first ten lessons.",
+      "facets": [
+        "teaching",
+        "design",
+        "Rust",
+        "Tauri",
+        "econometrics"
+      ],
+      "status": "draft_awaiting_approval",
+      "limits": [
+        "Nothing built; decisions recorded as of 2026-11-07; builder-check questions may change it."
+      ],
+      "evidence": [],
       "depends_on": []
     }
   ]
