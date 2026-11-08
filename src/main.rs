@@ -4,20 +4,20 @@ mod acceptance;
 mod adapter;
 mod animation;
 mod codegen;
-mod data;
+use model_lab_engine::data;
 mod decision;
 mod examples;
-mod experiment;
+use model_lab_engine::experiment;
 mod instrument;
-mod linear;
-mod model;
+use model_lab_engine::linear;
+use model_lab_engine::model;
 mod playback;
 mod python;
 mod quiz;
 #[cfg(feature = "acceptance")]
 mod research_acceptance;
 mod research_ui;
-mod science;
+use model_lab_engine::science;
 mod studio;
 mod study;
 #[cfg(feature = "acceptance")]

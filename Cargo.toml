@@ -5,6 +5,9 @@ edition = "2021"
 description = "Native computational teaching workbench for linear models and tree ensembles"
 publish = false
 
+[workspace]
+members = ["crates/engine"]
+
 [features]
 # Self-test, smoke-test and receipt-writing code. Off by default so the
 # shipped application contains no verification harness; CI and the verify_*
@@ -12,6 +15,7 @@ publish = false
 acceptance = []
 
 [dependencies]
+model-lab-engine = { path = "crates/engine" }
 serde = { version = "=1.0.229", features = ["derive", "rc"] }
 eframe = { version = "=0.36.2", default-features = false, features = ["wgpu", "default_fonts", "x11", "wayland"] }
 rand = "=0.8.5"

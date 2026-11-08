@@ -1,0 +1,14 @@
+[package]
+name = "model-lab-engine"
+version = "0.9.0"
+edition = "2021"
+description = "Model Lab numerical engine: data, solvers, ensembles, experiment records and study documents"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive", "rc"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+rand = "=0.8.5"

@@ -571,7 +571,7 @@ mod tests {
     }
     #[test]
     fn csv_to_each_fitted_model_end_to_end() {
-        let table = crate::data::Table::parse("sample.csv", include_str!("../sample.csv")).unwrap();
+        let table = crate::data::Table::parse("sample.csv", include_str!("../../../sample.csv")).unwrap();
         for method in Method::ALL {
             let data = table.dataset(2, &[0, 1]).unwrap();
             let f = go(

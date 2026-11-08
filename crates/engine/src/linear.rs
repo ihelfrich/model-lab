@@ -14,7 +14,6 @@ pub enum LinearMethod {
     Lasso,
     ElasticNet,
 }
-#[cfg_attr(not(feature = "acceptance"), allow(dead_code))]
 impl LinearMethod {
     pub const ALL: [Self; 5] = [
         Self::Ols,
