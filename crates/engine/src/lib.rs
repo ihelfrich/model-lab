@@ -3,6 +3,7 @@
 
 pub mod data;
 pub mod decision;
+pub mod ensemble;
 pub mod experiment;
 pub mod linear;
 pub mod model;

@@ -1,11 +1,11 @@
 use crate::data::Data;
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{rngs::StdRng, seq::SliceRandom};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Method {
     Tree,
     Boosting,
@@ -27,7 +27,7 @@ impl Method {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Config {
     pub method: Method,
     pub trees: usize,
@@ -59,7 +59,7 @@ impl Default for Config {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Node {
     pub value: f64,
     pub n: usize,
@@ -212,190 +212,27 @@ impl Fit {
             .unwrap_or(0)
     }
 }
-fn mse(y: &[f64], p: &[f64], rows: &[usize]) -> f64 {
+pub(crate) fn mse(y: &[f64], p: &[f64], rows: &[usize]) -> f64 {
     rows.iter().map(|&i| (y[i] - p[i]).powi(2)).sum::<f64>() / rows.len() as f64
 }
 
+/// Fit an ensemble to completion. Since engine 0.9 this is the stage-wise
+/// stepper in `crate::ensemble` run to the end; see `docs/CHANGED-RESULTS.md`.
 pub fn fit(data: Data, cfg: Config, cancel: Arc<AtomicBool>) -> Result<Fit, String> {
-    if data.x.len() < 4
-        || data.x.len() != data.y.len()
-        || data.names.is_empty()
-        || data.x.iter().any(|x| {
-            x.len() != data.names.len() || x.iter().any(|v| !v.is_finite() || v.abs() > 1e12)
-        })
-        || data.y.iter().any(|v| !v.is_finite() || v.abs() > 1e12)
-        || cfg.depth == 0
-        || cfg.depth > 10
-        || cfg.min_leaf == 0
-        || cfg.trees == 0
-        || cfg.trees > 300
-        || !(0.0..=1.0).contains(&cfg.rate)
-        || cfg.rate == 0.0
-        || !(0.05..=1.0).contains(&cfg.fraction)
-        || !(0.1..=0.5).contains(&cfg.validation)
-        || cfg.mtry == 0
-        || cfg.mtry > data.names.len()
-        || cfg.patience > 100
-        || !(0.0..1.0).contains(&cfg.min_relative_improvement)
-    {
-        return Err("Invalid data or model parameters.".into());
-    }
-    let mut split_rng = StdRng::seed_from_u64(cfg.seed);
-    let mut ids: Vec<_> = (0..data.y.len()).collect();
-    ids.shuffle(&mut split_rng);
-    let nv = ((ids.len() as f64 * cfg.validation).round() as usize).clamp(1, ids.len() - 2);
-    let valid = ids[..nv].to_vec();
-    let train = ids[nv..].to_vec();
-    let baseline = train.iter().map(|&i| data.y[i]).sum::<f64>() / train.len() as f64;
-    let mut prediction = vec![baseline; data.y.len()];
-    let mut forest_sum = vec![0.0; data.y.len()];
-    let mut oob_sum = vec![0.0; data.y.len()];
-    let mut oob_counts = vec![0_usize; data.y.len()];
-    let mut output = Fit {
-        importance: vec![0.0; data.names.len()],
-        data,
-        cfg,
-        train,
-        valid,
-        baseline,
-        trees: vec![],
-        samples: vec![],
-        train_mse: vec![],
-        valid_mse: vec![],
-        stage_predictions: vec![prediction.clone()],
-        oob_mse: vec![None],
-        oob_coverage: vec![0.0],
-    };
-    output
-        .train_mse
-        .push(mse(&output.data.y, &prediction, &output.train));
-    output
-        .valid_mse
-        .push(mse(&output.data.y, &prediction, &output.valid));
-    let mut rng = StdRng::seed_from_u64(output.cfg.seed.wrapping_add(1));
-    let b = if output.cfg.method == Method::Tree {
-        1
-    } else {
-        output.cfg.trees
-    };
-    let mut stopping_best = output.valid_mse[0];
-    let mut stale = 0;
-    for stage in 0..b {
+    let mut state = crate::ensemble::EnsembleState::new(data, cfg)?;
+    while !state.finished() {
         if cancel.load(Ordering::Relaxed) {
             return Err("Training canceled.".into());
         }
-        let target: Vec<f64> = if output.cfg.method.boosting() {
-            output
-                .data
-                .y
-                .iter()
-                .zip(&prediction)
-                .map(|(y, p)| y - p)
-                .collect()
-        } else {
-            output.data.y.clone()
-        };
-        let sample = match output.cfg.method {
-            Method::Forest => (0..output.train.len())
-                .map(|_| output.train[rng.gen_range(0..output.train.len())])
-                .collect(),
-            Method::Stochastic => {
-                let mut s = output.train.clone();
-                s.shuffle(&mut rng);
-                let n = ((s.len() as f64 * output.cfg.fraction).floor() as usize).max(1);
-                s.truncate(n);
-                s
-            }
-            _ => output.train.clone(),
-        };
-        let mtry = if output.cfg.method == Method::Forest {
-            output.cfg.mtry
-        } else {
-            output.data.names.len()
-        };
-        let tree = build_tree(
-            &output.data.x,
-            &target,
-            &sample,
-            output.cfg.depth,
-            output.cfg.min_leaf,
-            mtry,
-            &mut rng,
-        );
-        tree.gains(&mut output.importance);
-        let mut in_bag = vec![false; output.data.y.len()];
-        for &i in &sample {
-            in_bag[i] = true;
-        }
-        for (i, x) in output.data.x.iter().enumerate() {
-            let h = tree.predict(x);
-            match output.cfg.method {
-                Method::Tree => prediction[i] = h,
-                Method::Forest => {
-                    forest_sum[i] += h;
-                    prediction[i] = forest_sum[i] / (stage + 1) as f64;
-                    if !in_bag[i] {
-                        oob_sum[i] += h;
-                        oob_counts[i] += 1;
-                    }
-                }
-                _ => prediction[i] += output.cfg.rate * h,
-            }
-        }
-        output
-            .train_mse
-            .push(mse(&output.data.y, &prediction, &output.train));
-        output
-            .valid_mse
-            .push(mse(&output.data.y, &prediction, &output.valid));
-        output.stage_predictions.push(prediction.clone());
-        let covered: Vec<_> = output
-            .train
-            .iter()
-            .copied()
-            .filter(|&i| oob_counts[i] > 0)
-            .collect();
-        output
-            .oob_coverage
-            .push(covered.len() as f64 / output.train.len() as f64);
-        output.oob_mse.push(if covered.is_empty() {
-            None
-        } else {
-            Some(
-                covered
-                    .iter()
-                    .map(|&i| (output.data.y[i] - oob_sum[i] / oob_counts[i] as f64).powi(2))
-                    .sum::<f64>()
-                    / covered.len() as f64,
-            )
-        });
-        output.samples.push(sample);
-        output.trees.push(tree);
-        let loss = *output.valid_mse.last().unwrap();
-        if loss
-            < stopping_best - output.cfg.min_relative_improvement * stopping_best.abs().max(1e-12)
-        {
-            stopping_best = loss;
-            stale = 0;
-        } else {
-            stale += 1;
-        }
-        if output.cfg.method.boosting() && output.cfg.patience > 0 && stale >= output.cfg.patience {
-            break;
-        }
+        state.step()?;
     }
-    let sum: f64 = output.importance.iter().sum();
-    if sum > 0.0 {
-        for v in &mut output.importance {
-            *v /= sum;
-        }
-    }
-    Ok(output)
+    Ok(state.into_fit())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::{Rng, SeedableRng};
     fn fixture() -> Data {
         Data {
             names: vec!["x".into()],

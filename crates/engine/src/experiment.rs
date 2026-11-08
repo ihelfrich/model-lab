@@ -12,7 +12,11 @@ use std::sync::{
     Arc,
 };
 
-pub const TRACE_SCHEMA: u64 = 1;
+/// Saved-experiment schema. 1 was Model Lab 0.8; 2 (engine 0.9) changed how
+/// forests and stochastic boosting draw their samples (per-tree streams).
+pub const TRACE_SCHEMA: u64 = 2;
+/// Shown when a schema-1 experiment is opened.
+pub const SCHEMA_ONE_NOTICE: &str = "This experiment was saved by Model Lab 0.8. Random forests and stochastic boosting draw their samples differently since 0.9 (see CHANGED-RESULTS.md); it opens read-only and is not refitted.";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Task {
     Regression,
@@ -537,8 +541,10 @@ impl Run {
             "final_predictions":self.predictions(self.last_stage()),"converged":self.converged(),"warning":self.warning()})
     }
     pub fn from_json(value: &Value, cancel: Arc<AtomicBool>) -> Result<Self, String> {
-        if value["schema_version"].as_u64() != Some(TRACE_SCHEMA) {
-            return Err("Unsupported saved-experiment schema.".into());
+        match value["schema_version"].as_u64() {
+            Some(TRACE_SCHEMA) => {}
+            Some(1) => return Err(SCHEMA_ONE_NOTICE.into()),
+            _ => return Err("Unsupported saved-experiment schema.".into()),
         }
         let d = &value["data"];
         let c = &value["config"];

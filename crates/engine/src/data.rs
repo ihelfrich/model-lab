@@ -195,7 +195,7 @@ impl Table {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Data {
     pub names: Vec<String>,
     pub target: String,
