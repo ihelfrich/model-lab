@@ -1665,6 +1665,8 @@ dependencies = [
 name = "model-lab-engine"
 version = "0.9.0"
 dependencies = [
+ "libc",
+ "model-lab-supervisor",
  "rand",
  "serde",
  "serde_json",
