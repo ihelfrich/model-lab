@@ -326,6 +326,12 @@ causal estimators via PyFixest and DoubleML.
   `docs/CHANGED-RESULTS.md`, because resumable jobs need tree *t*
   reproducible from (seed, t). Single trees, full-data boosting and all
   linear models are unchanged from 0.8.
+- Reading back a supervised result (found in plan 1's review,
+  2026-11-08): `Run::from_json` refits to load and is capped at the
+  5,000-row interactive bound, so the `Completed.result` of a 50,000-row
+  job cannot be opened by the engine today. Plan 2's first task is a
+  read-only `Run` constructor from the saved trace with a row bound tied
+  to the job's `max_rows`, used by the shell to display supervised results.
 - Platform limits (builder's call, plan 1): memory limits are kernel-
   enforced on Linux (RLIMIT_AS) and Windows (Job Object) and
   sampler-enforced on macOS, which rejects small address-space rlimits;

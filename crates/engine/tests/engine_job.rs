@@ -171,3 +171,31 @@ fn spec_file_is_validated() {
     std::fs::write(&bad, serde_json::to_vec(&json!({"v": 3, "job": "fit", "label": "x", "data_csv": "d.csv", "target": "y", "features": ["a"], "config": Value::Null, "max_rows": 10, "checkpoint_every_trees": 0})).unwrap()).unwrap();
     assert!(job_spec::load(&bad).unwrap_err().contains("checkpoint_every_trees"));
 }
+
+#[test]
+fn damaged_checkpoint_is_set_aside_and_the_job_starts_fresh() {
+    let d = dir();
+    let (spec, ck) = forest_spec(&d, 30, 8);
+    let out = run(&spec, &ck, Some("abc"), None);
+    assert_eq!(out.code, Some(0), "{:?}", out.output);
+    let bytes = std::fs::read(&ck).unwrap();
+    std::fs::write(&ck, &bytes[..bytes.len() / 2]).unwrap();
+    let again = run(&spec, &ck, Some("abc"), None);
+    assert_eq!(again.code, Some(0), "{:?}", again.output);
+    let first = again.events.iter().find_map(|e| match e { Kind::Progress { units_done, .. } => Some(*units_done), _ => None }).unwrap();
+    assert_eq!(first, 1, "started fresh");
+    assert!(again.output.iter().any(|l| l.contains("damaged") && l.contains("checkpoint.json")), "{:?}", again.output);
+    assert!(d.join("checkpoint.json.damaged").exists(), "the damaged file is kept aside");
+}
+
+#[test]
+fn an_unwritable_checkpoint_does_not_fail_a_completed_fit() {
+    let d = dir();
+    let (spec, _) = forest_spec(&d, 30, 9);
+    let ck = d.join("no-such-dir").join("checkpoint.json");
+    let out = run(&spec, &ck, Some("abc"), None);
+    assert_eq!(out.code, Some(0), "{:?}", out.output);
+    assert!(out.events.iter().any(|e| matches!(e, Kind::Completed { .. })));
+    assert!(!out.events.iter().any(|e| matches!(e, Kind::Checkpoint { .. })));
+    assert!(out.output.iter().any(|l| l.contains("checkpoint") && l.contains("no-such-dir")), "{:?}", out.output);
+}

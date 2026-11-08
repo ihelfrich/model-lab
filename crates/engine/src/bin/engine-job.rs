@@ -45,6 +45,12 @@ impl Emitter {
         let _ = writeln!(lock, "{}", encode(&self.nonce, kind));
         let _ = lock.flush();
     }
+    /// A plain line for the person watching; never an event.
+    fn say(&mut self, text: &str) {
+        let mut lock = self.out.lock();
+        let _ = writeln!(lock, "{text}");
+        let _ = lock.flush();
+    }
 }
 
 fn main() {
@@ -117,14 +123,27 @@ fn run(spec_path: &Path, checkpoint_path: &Path, emitter: &mut Emitter) -> Resul
                 EnsembleState::from_json(&document["state"], data.clone())?
             }
             Err(CheckpointError::Io(e, _)) if e.kind() == std::io::ErrorKind::NotFound => EnsembleState::new(data.clone(), config.tree.clone())?,
-            Err(e) => return Err(format!("{e}; starting over is required").into()),
+            Err(e) => {
+                // Damaged or foreign: keep it aside for inspection and start fresh.
+                let mut aside = checkpoint_path.as_os_str().to_owned();
+                aside.push(".damaged");
+                let moved = std::fs::rename(checkpoint_path, &aside).is_ok();
+                emitter.say(&format!(
+                    "{e}; starting fresh{}",
+                    if moved { format!(" (the damaged file is kept at {})", PathBuf::from(&aside).display()) } else { String::new() }
+                ));
+                EnsembleState::new(data.clone(), config.tree.clone())?
+            }
         };
         let total = if config.tree.method == model_lab_engine::model::Method::Tree { 1 } else { config.tree.trees } as u64;
-        let write = |state: &EnsembleState, emitter: &mut Emitter| -> Result<(), String> {
+        // A checkpoint that cannot be written is reported and the fit goes on;
+        // it never costs a completed fit its result.
+        let write = |state: &EnsembleState, emitter: &mut Emitter| {
             let document = serde_json::json!({"spec_sha256": spec_sha256, "data_sha256": data_sha256, "state": state.to_json()});
-            let hash = checkpoint::write_atomic(checkpoint_path, &document).map_err(|e| e.to_string())?;
-            emitter.emit(Kind::Checkpoint { path: checkpoint_path.to_string_lossy().into_owned(), sha256: hash });
-            Ok(())
+            match checkpoint::write_atomic(checkpoint_path, &document) {
+                Ok(hash) => emitter.emit(Kind::Checkpoint { path: checkpoint_path.to_string_lossy().into_owned(), sha256: hash }),
+                Err(e) => emitter.say(&format!("warning: could not write the checkpoint: {e}; continuing without it")),
+            }
         };
         let mut since_checkpoint = 0usize;
         while !state.finished() {
@@ -132,18 +151,18 @@ fn run(spec_path: &Path, checkpoint_path: &Path, emitter: &mut Emitter) -> Resul
             since_checkpoint += 1;
             emitter.emit(Kind::Progress { units_done: state.stage() as u64, units_total: Some(total), unit: "tree".into(), stage: None });
             if since_checkpoint >= spec.checkpoint_every_trees {
-                write(&state, emitter)?;
+                write(&state, emitter);
                 since_checkpoint = 0;
             }
             if TERMINATE.load(Ordering::Relaxed) {
                 if since_checkpoint > 0 {
-                    write(&state, emitter)?;
+                    write(&state, emitter);
                 }
                 return Err(Outcome::Terminated);
             }
         }
         if since_checkpoint > 0 {
-            write(&state, emitter)?;
+            write(&state, emitter);
         }
         FittedModel::Trees(state.into_fit())
     };
