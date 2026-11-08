@@ -29,7 +29,7 @@ jobs:
           # The worker tests launch the real Python runtime; the binary no
           # longer guesses one from PATH, so name the runner's interpreter.
           $env:MODEL_LAB_PYTHON = (Get-Command python).Source
-          cargo test --features acceptance --target x86_64-pc-windows-msvc --locked
+          cargo test --workspace --features tree-ensemble-lab/acceptance --target x86_64-pc-windows-msvc --locked
           if ($LASTEXITCODE -ne 0) { throw "cargo test exited $LASTEXITCODE" }
       - name: Build verification executable (acceptance harness compiled in)
         run: cargo build --release --features acceptance --target x86_64-pc-windows-msvc --locked

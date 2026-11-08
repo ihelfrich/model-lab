@@ -1,0 +1,25 @@
+name: engine
+on:
+  push:
+    branches: [main, engine-supervisor]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test the workspace
+        run: cargo test --workspace --locked
+      - name: Build the engine in release
+        run: cargo build -p model-lab-engine --release --locked
