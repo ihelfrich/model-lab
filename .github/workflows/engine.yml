@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, windows-2022]
+        os: [macos-latest, windows-2022]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -24,7 +24,7 @@ jobs:
         run: |
           cargo --version
           cp Cargo.lock /tmp/before.lock
-          cargo generate-lockfile --offline || cargo generate-lockfile
+          cargo update --workspace --verbose
           diff /tmp/before.lock Cargo.lock || true
           cp /tmp/before.lock Cargo.lock
       - name: Test the workspace
