@@ -120,34 +120,46 @@ pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32:
     }
 }
 
-/// Which limit, if any, the Job Object reports as violated (Windows).
+/// Which configured limit, if any, the Job Object's accounting shows was
+/// reached (Windows). Hard limits are not reported through the violation
+/// query (that covers notification limits only), so peak process memory and
+/// total user time are compared with the configured values.
 #[cfg(windows)]
-pub(crate) fn violation(job: windows_sys::Win32::Foundation::HANDLE) -> Option<LimitHit> {
+pub(crate) fn violation(job: windows_sys::Win32::Foundation::HANDLE, limits: &Limits) -> Option<LimitHit> {
     use windows_sys::Win32::System::JobObjects::{
-        JobObjectLimitViolationInformation, QueryInformationJobObject,
-        JOBOBJECT_LIMIT_VIOLATION_INFORMATION, JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
-        JOB_OBJECT_LIMIT_PROCESS_TIME,
+        JobObjectBasicAccountingInformation, JobObjectExtendedLimitInformation, QueryInformationJobObject,
+        JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     };
     unsafe {
-        let mut info: JOBOBJECT_LIMIT_VIOLATION_INFORMATION = std::mem::zeroed();
-        let ok = QueryInformationJobObject(
-            job,
-            JobObjectLimitViolationInformation,
-            &mut info as *mut _ as *mut _,
-            std::mem::size_of::<JOBOBJECT_LIMIT_VIOLATION_INFORMATION>() as u32,
-            std::ptr::null_mut(),
-        );
-        if ok == 0 {
-            return None;
+        if let Some(limit) = limits.memory_bytes {
+            let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            let ok = QueryInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &mut info as *mut _ as *mut _,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                std::ptr::null_mut(),
+            );
+            // Commit charge stops at the limit when the failing allocation is refused.
+            if ok != 0 && (info.PeakProcessMemoryUsed as u64) >= limit * 9 / 10 {
+                return Some(LimitHit::Memory);
+            }
         }
-        if info.ViolationLimitFlags & JOB_OBJECT_LIMIT_PROCESS_MEMORY != 0 {
-            Some(LimitHit::Memory)
-        } else if info.ViolationLimitFlags & (JOB_OBJECT_LIMIT_JOB_TIME | JOB_OBJECT_LIMIT_PROCESS_TIME) != 0 {
-            Some(LimitHit::Cpu)
-        } else {
-            None
+        if let Some(cpu) = limits.cpu {
+            let mut acct: JOBOBJECT_BASIC_ACCOUNTING_INFORMATION = std::mem::zeroed();
+            let ok = QueryInformationJobObject(
+                job,
+                JobObjectBasicAccountingInformation,
+                &mut acct as *mut _ as *mut _,
+                std::mem::size_of::<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>() as u32,
+                std::ptr::null_mut(),
+            );
+            if ok != 0 && (acct.TotalUserTime as u128) >= cpu.as_nanos() / 100 {
+                return Some(LimitHit::Cpu);
+            }
         }
     }
+    None
 }
 
 /// Which limit, if any, a Unix exit status indicates. SIGXCPU is the CPU

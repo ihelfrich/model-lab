@@ -169,8 +169,7 @@ impl Child {
     pub fn limit_violation(&self, limits: &Limits) -> Option<crate::limits::LimitHit> {
         #[cfg(windows)]
         {
-            let _ = limits;
-            crate::limits::violation(self.job)
+            crate::limits::violation(self.job, limits)
         }
         #[cfg(unix)]
         {
