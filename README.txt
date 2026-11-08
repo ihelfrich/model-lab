@@ -37,12 +37,11 @@ columns must be finite numeric values with magnitude <=1e12. Quoted commas,
 doubled quotes, embedded newlines, CRLF and BOM are supported. There is no silent
 imputation, row dropping or categorical encoding. Only numeric regression is
 implemented; classification concepts appear in the practice bank.
-Built-ins: nonlinear, interaction and noisy synthetic signals; income3000 rows;
-diamonds1500 reproducible rows from53940; Florida90 selected-column community rows.
-Original source files are unchanged. Local/private provenance is retained outside
-student exports. Raw data and private provenance are excluded from reuse registration.
-Upstream redistribution licenses for course-data copies were not independently
-verified; no claim of a new public research dataset or general distribution grant.
+Built-ins: nonlinear, interaction and noisy synthetic signals, plus three synthetic
+example tables (income 3000 rows; diamonds 1500 rows; communities 90 rows) written by
+examples/generate.py from the seeds and distributions in that file. They imitate the
+shapes of common course datasets so the lessons read naturally, but no row describes
+a real person, stone or place and nothing in this repository is redistributed data.
 
 ENGINE
 CART uses greedy numeric SSE splits, constant mean leaves, depth and minimum leaf

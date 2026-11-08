@@ -2,7 +2,6 @@
 /.venv/
 /dist/
 /Releases/
-/student-delivery/
 __pycache__/
 *.zip
 *.png

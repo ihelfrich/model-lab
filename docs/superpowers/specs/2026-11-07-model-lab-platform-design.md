@@ -305,13 +305,13 @@ causal estimators via PyFixest and DoubleML.
 - The pixi environment split and how the pixi binary is bundled and
   updated.
 - CI (Dr. Helfrich, 2026-11-07): a public GitHub repository, so macOS and
-  Windows runners are free. Before the first push the repository must be
-  cleared for publication: `delivery-readiness-2026-11-03.json` names a
-  student delivery folder; the design document names a student; the three
-  course-data CSVs in `examples/` (income, diamonds, Florida communities)
-  carry no verified redistribution licence per `README.txt` and must be
-  replaced by synthetic or openly licensed data, or removed from the
-  public tree, before publishing. Not yet done; paused at his request.
+  Windows runners are free. Cleared for publication the same day: the
+  delivery-readiness note that named a student delivery folder was removed,
+  the student is no longer named anywhere in the tree, and the three
+  course-data CSVs in `examples/` were replaced by synthetic tables written
+  by `examples/generate.py` (same schemas and row counts, documented
+  generating mechanisms, no upstream licence to clear). History was rewritten
+  before the first push so the original files never reached GitHub.
 - Signing: ad-hoc remains until a Developer ID is approved; the design
   must not depend on notarization but must be ready for it.
 - Order of implementation inside Phase 1, except that the engine crate

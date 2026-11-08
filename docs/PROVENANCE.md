@@ -4,7 +4,7 @@ This repository was created on 2026-11-07 from the untracked source tree at
 `/Users/ian/Documents/ChatGPT/Tutoring/outputs/tree-ensemble-lab-rust/`
 (Model Lab 0.8.0, formerly Tree Ensemble Lab), which Codex sessions built
 between 2026-11-02 and 2026-11-05. That folder, including `Releases/`,
-`dist/` and `student-delivery/`, remains the archive of delivered artifacts and is
+`dist/` and the student delivery folder, remains the archive of delivered artifacts and is
 not modified from here. Build outputs, virtual environments, release
 archives, screenshots and private provenance files were not imported.
 
