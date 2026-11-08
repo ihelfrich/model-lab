@@ -7,7 +7,7 @@ use crate::protocol::{self, Kind, Line};
 use crate::resources::{Sample, Sampler};
 use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -60,6 +60,7 @@ pub struct JobHandle {
     events: Receiver<JobEvent>,
     cancel: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
+    iterations: Arc<AtomicU64>,
 }
 
 impl JobHandle {
@@ -73,6 +74,12 @@ impl JobHandle {
     }
     pub fn is_finished(&self) -> bool {
         self.finished.load(Ordering::Relaxed)
+    }
+    /// Control-loop passes so far: a diagnostic. A job that is waiting
+    /// (on a line, a sample or a sleep) makes a few dozen passes a second;
+    /// thousands mean the loop is spinning.
+    pub fn loop_iterations(&self) -> u64 {
+        self.iterations.load(Ordering::Relaxed)
     }
 }
 
@@ -95,17 +102,18 @@ impl Supervisor {
         let (tx, rx) = sync_channel(EVENT_BUFFER);
         let cancel = Arc::new(AtomicBool::new(false));
         let finished = Arc::new(AtomicBool::new(false));
+        let iterations = Arc::new(AtomicU64::new(0));
         let nonce = protocol::nonce();
         let mut command = spec.command.clone();
         if let Some(path) = &spec.checkpoint {
             command.env.push((CHECKPOINT_ENV.into(), path.to_string_lossy().into_owned()));
         }
         let child = spawn(command, &nonce, &spec.limits)?;
-        let worker = JobThread { spec, nonce, child, tx, cancel: cancel.clone(), finished: finished.clone(), wall_deadline: None };
+        let worker = JobThread { spec, nonce, child, tx, cancel: cancel.clone(), finished: finished.clone(), wall_deadline: None, iterations: iterations.clone() };
         let thread = std::thread::spawn(move || worker.run());
         self.jobs.lock().unwrap().retain(|r| r.thread.as_ref().is_some_and(|t| !t.is_finished()));
         self.jobs.lock().unwrap().push(Running { cancel: cancel.clone(), thread: Some(thread) });
-        Ok(JobHandle { events: rx, cancel, finished })
+        Ok(JobHandle { events: rx, cancel, finished, iterations })
     }
 
     /// Cancel every running job and wait for each to end.
@@ -137,6 +145,7 @@ struct JobThread {
     finished: Arc<AtomicBool>,
     /// When the wall-clock limit falls, if one is set.
     wall_deadline: Option<Instant>,
+    iterations: Arc<AtomicU64>,
 }
 
 enum Outcome {
@@ -235,6 +244,7 @@ impl JobThread {
         let mut st = LoopState::default();
         let mut strikes = 0u32;
         let outcome = loop {
+            self.iterations.fetch_add(1, Ordering::Relaxed);
             // Lines from the child. Closed pipes with a live child must not spin.
             match self.child.lines().recv_timeout(Duration::from_millis(50)) {
                 Ok(line) => self.handle_line(line, &mut st),

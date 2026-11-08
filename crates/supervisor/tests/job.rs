@@ -225,22 +225,17 @@ fn fast_sampling_during_the_kill_grace_does_not_hang_shutdown() {
     assert!(started.elapsed() < Duration::from_secs(5), "shutdown took {:?}", started.elapsed());
 }
 
-#[cfg(unix)]
 #[test]
 fn closed_pipes_do_not_spin_the_job_thread() {
-    fn user_cpu() -> Duration {
-        let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
-        unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
-        Duration::new(usage.ru_utime.tv_sec as u64, (usage.ru_utime.tv_usec * 1000) as u32)
-    }
-    // Sample once only, so the sampler's refresh cost does not hide the loop's
-    // own: a spinning loop would burn most of the two seconds of CPU.
+    // A waiting loop makes at most about twenty passes a second (50 ms waits);
+    // a spinning one makes thousands. Count the passes rather than CPU time,
+    // which the other tests in this binary would pollute.
     let sup = Supervisor::new();
-    let before = user_cpu();
-    let events = collect(&sup.start(JobSpec { sample_interval: Duration::from_secs(60), ..spec(&["--close-stdout", "--sleep", "2"], Limits::default()) }).unwrap(), Duration::from_secs(10));
-    let spent = user_cpu() - before;
+    let handle = sup.start(spec(&["--close-stdout", "--sleep", "2"], Limits::default())).unwrap();
+    let events = collect(&handle, Duration::from_secs(10));
     assert!(matches!(events.last(), Some(JobEvent::Failed { .. })), "{:?}", events.last());
-    assert!(spent < Duration::from_millis(600), "job thread burned {spent:?} of CPU while the child slept with closed pipes");
+    let passes = handle.loop_iterations();
+    assert!(passes < 200, "job loop made {passes} passes while the child slept 2 s with closed pipes");
 }
 
 #[test]
