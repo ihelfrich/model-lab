@@ -13,3 +13,12 @@ serde = { version = "=1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 rand = "=0.8.5"
 sha2 = "=0.10.9"
+# Only the `protocol` and `checkpoint` modules are used by the job binary.
+model-lab-supervisor = { path = "../supervisor" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+
+[[bin]]
+name = "model-lab-engine-job"
+path = "src/bin/engine-job.rs"

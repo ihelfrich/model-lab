@@ -36,6 +36,8 @@ pub struct Child {
     status: Option<ExitStatus>,
     #[cfg(windows)]
     job: windows_sys::Win32::Foundation::HANDLE,
+    #[cfg(windows)]
+    port: windows_sys::Win32::Foundation::HANDLE,
 }
 
 #[cfg(windows)]
@@ -71,7 +73,7 @@ pub fn spawn(cmd: Command, nonce: &str, limits: &Limits) -> std::io::Result<Chil
         }
     }
     #[cfg(windows)]
-    let job = crate::limits::create_job(limits)?;
+    let (job, port) = crate::limits::create_job(limits)?;
     let mut inner = command.spawn()?;
     #[cfg(windows)]
     {
@@ -94,6 +96,8 @@ pub fn spawn(cmd: Command, nonce: &str, limits: &Limits) -> std::io::Result<Chil
         status: None,
         #[cfg(windows)]
         job,
+        #[cfg(windows)]
+        port,
     })
 }
 
@@ -169,7 +173,7 @@ impl Child {
     pub fn limit_violation(&self, limits: &Limits) -> Option<crate::limits::LimitHit> {
         #[cfg(windows)]
         {
-            crate::limits::violation(self.job, limits)
+            crate::limits::violation(self.job, self.port, limits)
         }
         #[cfg(unix)]
         {
@@ -184,6 +188,7 @@ impl Drop for Child {
         let _ = self.kill_tree(Duration::from_secs(2));
         #[cfg(windows)]
         unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.port);
             windows_sys::Win32::Foundation::CloseHandle(self.job);
         }
     }

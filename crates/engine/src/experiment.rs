@@ -171,6 +171,48 @@ impl Default for RunConfig {
         }
     }
 }
+impl RunConfig {
+    /// The `config` object of a saved experiment and of a job specification.
+    pub fn to_json(&self) -> Value {
+        let c = self;
+        let t = &c.tree;
+        json!({"model":c.model.key(),"seed":c.seed,"validation":c.validation,"alpha":c.linear.alpha,"mix":c.linear.mix,"standardize":c.linear.standardize,"tolerance":c.linear.tolerance,"max_iterations":c.linear.max_iterations,
+            "trees":t.trees,"depth":t.depth,"min_leaf":t.min_leaf,"rate":t.rate,"fraction":t.fraction,"mtry":t.mtry,"patience":t.patience,"min_relative_improvement":t.min_relative_improvement})
+    }
+    pub fn from_json(c: &Value) -> Result<Self, String> {
+        let number = |key: &str| {
+            c[key]
+                .as_f64()
+                .ok_or_else(|| format!("Missing numeric setting {key}"))
+        };
+        let integer = |key: &str| {
+            c[key]
+                .as_u64()
+                .map(|v| v as usize)
+                .ok_or_else(|| format!("Missing integer setting {key}"))
+        };
+        let mut cfg = RunConfig::default();
+        cfg.model = ModelId::parse(c["model"].as_str().ok_or("Missing model")?)?;
+        cfg.seed = c["seed"].as_u64().ok_or("Missing seed")?;
+        cfg.validation = number("validation")?;
+        cfg.linear.alpha = number("alpha")?;
+        cfg.linear.mix = number("mix")?;
+        cfg.linear.standardize = c["standardize"]
+            .as_bool()
+            .ok_or("Missing preprocessing setting")?;
+        cfg.linear.tolerance = number("tolerance")?;
+        cfg.linear.max_iterations = integer("max_iterations")?;
+        cfg.tree.trees = integer("trees")?;
+        cfg.tree.depth = integer("depth")?;
+        cfg.tree.min_leaf = integer("min_leaf")?;
+        cfg.tree.rate = number("rate")?;
+        cfg.tree.fraction = number("fraction")?;
+        cfg.tree.mtry = integer("mtry")?;
+        cfg.tree.patience = integer("patience")?;
+        cfg.tree.min_relative_improvement = number("min_relative_improvement")?;
+        Ok(cfg)
+    }
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Partition {
     pub train: Vec<usize>,
@@ -324,14 +366,23 @@ pub struct Run {
     pub fingerprint: String,
 }
 impl Run {
+    /// Interactive bound on rows for in-process fits.
+    pub const INTERACTIVE_ROWS: usize = 5000;
+
     pub fn fit(
         name: String,
         data: Data,
-        mut config: RunConfig,
+        config: RunConfig,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
+        Self::fit_with_limit(name, data, config, cancel, Self::INTERACTIVE_ROWS)
+    }
+
+    /// Reject data outside the rectangular, finite, 1–64-predictor shape or
+    /// above `max_rows`.
+    pub fn validate_data(data: &Data, max_rows: usize) -> Result<(), String> {
         let p = data.names.len();
-        if data.y.len() > 5000
+        if data.y.len() > max_rows
             || p == 0
             || p > 64
             || data.x.len() != data.y.len()
@@ -341,12 +392,34 @@ impl Run {
                 .any(|r| r.len() != p || r.iter().any(|v| !v.is_finite() || v.abs() > 1e12))
             || data.y.iter().any(|v| !v.is_finite() || v.abs() > 1e12)
         {
-            return Err("Use a rectangular finite numeric dataset with 1–64 predictors and at most 5,000 rows.".into());
+            return Err(format!("Use a rectangular finite numeric dataset with 1–64 predictors and at most {max_rows} rows."));
         }
+        Ok(())
+    }
+
+    /// Prepare `config` for its model family and draw the partition.
+    pub fn prepare(data: &Data, config: &mut RunConfig) -> Result<Partition, String> {
         let task = config.model.descriptor().task;
-        let mut split = partition(&data, task, config.seed, config.validation)?;
-        let fitted = if let ModelId::Linear(method) = config.model {
+        if let ModelId::Linear(method) = config.model {
             config.linear.method = method;
+        } else {
+            config.tree.method = config.model.tree_method().unwrap();
+            config.tree.seed = config.seed;
+            config.tree.validation = config.validation;
+        }
+        partition(data, task, config.seed, config.validation)
+    }
+
+    pub fn fit_with_limit(
+        name: String,
+        data: Data,
+        mut config: RunConfig,
+        cancel: Arc<AtomicBool>,
+        max_rows: usize,
+    ) -> Result<Self, String> {
+        Self::validate_data(&data, max_rows)?;
+        let split = Self::prepare(&data, &mut config)?;
+        let fitted = if let ModelId::Linear(_) = config.model {
             FittedModel::Linear(linear::fit(
                 &data,
                 &split.train,
@@ -354,10 +427,23 @@ impl Run {
                 cancel.clone(),
             )?)
         } else {
-            config.tree.method = config.model.tree_method().unwrap();
-            config.tree.seed = config.seed;
-            config.tree.validation = config.validation;
-            let f = model::fit(data.clone(), config.tree.clone(), cancel.clone())?;
+            FittedModel::Trees(model::fit(data.clone(), config.tree.clone(), cancel.clone())?)
+        };
+        Self::from_fitted(name, data, config, split, fitted, cancel)
+    }
+
+    /// Assemble the experiment record (trace of every stage) around a model
+    /// fitted elsewhere, for example stage by stage under the supervisor.
+    pub fn from_fitted(
+        name: String,
+        data: Data,
+        config: RunConfig,
+        mut split: Partition,
+        fitted: FittedModel,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        let task = config.model.descriptor().task;
+        if let FittedModel::Trees(f) = &fitted {
             if f.train != split.train || f.valid != split.valid {
                 return Err("Tree adapter partition does not match experiment partition.".into());
             }
@@ -366,8 +452,7 @@ impl Run {
                 valid: f.valid.clone(),
                 stratified: false,
             };
-            FittedModel::Trees(f)
-        };
+        }
         let count = match &fitted {
             FittedModel::Linear(f) => f.steps.len(),
             FittedModel::Trees(f) => f.trees.len() + 1,
@@ -531,11 +616,9 @@ impl Run {
     }
     pub fn to_json(&self) -> Value {
         let c = &self.config;
-        let t = &c.tree;
         json!({"schema_version":TRACE_SCHEMA,"engine_version":env!("CARGO_PKG_VERSION"),"name":self.name,"fingerprint":self.fingerprint,
             "data":{"names":self.data.names,"target":self.data.target,"x":self.data.x,"y":self.data.y},
-            "config":{"model":c.model.key(),"seed":c.seed,"validation":c.validation,"alpha":c.linear.alpha,"mix":c.linear.mix,"standardize":c.linear.standardize,"tolerance":c.linear.tolerance,"max_iterations":c.linear.max_iterations,
-                "trees":t.trees,"depth":t.depth,"min_leaf":t.min_leaf,"rate":t.rate,"fraction":t.fraction,"mtry":t.mtry,"patience":t.patience,"min_relative_improvement":t.min_relative_improvement},
+            "config":c.to_json(),
             "partition":{"train":self.partition.train,"valid":self.partition.valid},
             "trace":self.trace.iter().map(|s|json!({"stage":s.stage,"iteration":s.iteration,"label":s.label,"objective":s.objective,"train_loss":s.train_loss,"valid_loss":s.valid_loss,"stationarity":s.stationarity,"coefficients":self.coefficients(s.stage)})).collect::<Vec<_>>(),
             "final_predictions":self.predictions(self.last_stage()),"converged":self.converged(),"warning":self.warning()})
@@ -559,36 +642,7 @@ impl Run {
         if data.y.len() > 5000 || data.names.len() > 64 {
             return Err("Saved experiment exceeds teaching-workspace limits.".into());
         }
-        let number = |key: &str| {
-            c[key]
-                .as_f64()
-                .ok_or_else(|| format!("Missing numeric setting {key}"))
-        };
-        let integer = |key: &str| {
-            c[key]
-                .as_u64()
-                .map(|v| v as usize)
-                .ok_or_else(|| format!("Missing integer setting {key}"))
-        };
-        let mut cfg = RunConfig::default();
-        cfg.model = ModelId::parse(c["model"].as_str().ok_or("Missing model")?)?;
-        cfg.seed = c["seed"].as_u64().ok_or("Missing seed")?;
-        cfg.validation = number("validation")?;
-        cfg.linear.alpha = number("alpha")?;
-        cfg.linear.mix = number("mix")?;
-        cfg.linear.standardize = c["standardize"]
-            .as_bool()
-            .ok_or("Missing preprocessing setting")?;
-        cfg.linear.tolerance = number("tolerance")?;
-        cfg.linear.max_iterations = integer("max_iterations")?;
-        cfg.tree.trees = integer("trees")?;
-        cfg.tree.depth = integer("depth")?;
-        cfg.tree.min_leaf = integer("min_leaf")?;
-        cfg.tree.rate = number("rate")?;
-        cfg.tree.fraction = number("fraction")?;
-        cfg.tree.mtry = integer("mtry")?;
-        cfg.tree.patience = integer("patience")?;
-        cfg.tree.min_relative_improvement = number("min_relative_improvement")?;
+        let cfg = RunConfig::from_json(c)?;
         let run = Self::fit(
             value["name"].as_str().unwrap_or("Saved experiment").into(),
             data,

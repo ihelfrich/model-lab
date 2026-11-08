@@ -80,13 +80,15 @@ pub(crate) fn apply_in_child(limits: &Limits) -> std::io::Result<()> {
 /// the tree dies with the supervisor, plus per-process memory and job CPU
 /// time limits when requested.
 #[cfg(windows)]
-pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32::Foundation::HANDLE> {
+pub(crate) fn create_job(limits: &Limits) -> std::io::Result<(windows_sys::Win32::Foundation::HANDLE, windows_sys::Win32::Foundation::HANDLE)> {
+    use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
     use windows_sys::Win32::System::JobObjects::{
-        CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_JOB_TIME,
-        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+        CreateJobObjectW, JobObjectAssociateCompletionPortInformation, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_ASSOCIATE_COMPLETION_PORT, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
         JOB_OBJECT_LIMIT_PROCESS_TIME,
     };
+    use windows_sys::Win32::System::IO::CreateIoCompletionPort;
     unsafe {
         let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
         if job.is_null() {
@@ -116,8 +118,38 @@ pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32:
             windows_sys::Win32::Foundation::CloseHandle(job);
             return Err(e);
         }
-        Ok(job)
+        // Limit events (memory refused, time exhausted) arrive as messages on
+        // this port; hard limits are not reported any other way.
+        let port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, std::ptr::null_mut(), 0, 1);
+        if port.is_null() {
+            let e = std::io::Error::last_os_error();
+            windows_sys::Win32::Foundation::CloseHandle(job);
+            return Err(e);
+        }
+        let associate = JOBOBJECT_ASSOCIATE_COMPLETION_PORT { CompletionKey: std::ptr::null_mut(), CompletionPort: port };
+        if SetInformationJobObject(
+            job,
+            JobObjectAssociateCompletionPortInformation,
+            &associate as *const _ as *const _,
+            std::mem::size_of::<JOBOBJECT_ASSOCIATE_COMPLETION_PORT>() as u32,
+        ) == 0
+        {
+            let e = std::io::Error::last_os_error();
+            windows_sys::Win32::Foundation::CloseHandle(port);
+            windows_sys::Win32::Foundation::CloseHandle(job);
+            return Err(e);
+        }
+        Ok((job, port))
     }
+}
+
+/// Job Object message identifiers (documented values).
+#[cfg(windows)]
+mod job_msg {
+    pub const END_OF_JOB_TIME: u32 = 1;
+    pub const END_OF_PROCESS_TIME: u32 = 2;
+    pub const PROCESS_MEMORY_LIMIT: u32 = 9;
+    pub const JOB_MEMORY_LIMIT: u32 = 10;
 }
 
 /// Which configured limit, if any, the Job Object's accounting shows was
@@ -125,12 +157,36 @@ pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32:
 /// query (that covers notification limits only), so peak process memory and
 /// total user time are compared with the configured values.
 #[cfg(windows)]
-pub(crate) fn violation(job: windows_sys::Win32::Foundation::HANDLE, limits: &Limits) -> Option<LimitHit> {
+pub(crate) fn violation(
+    job: windows_sys::Win32::Foundation::HANDLE,
+    port: windows_sys::Win32::Foundation::HANDLE,
+    limits: &Limits,
+) -> Option<LimitHit> {
     use windows_sys::Win32::System::JobObjects::{
         JobObjectBasicAccountingInformation, JobObjectExtendedLimitInformation, QueryInformationJobObject,
         JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     };
+    use windows_sys::Win32::System::IO::{GetQueuedCompletionStatus, OVERLAPPED};
     unsafe {
+        // Drain every queued message; the strongest attribution wins.
+        let mut hit = None;
+        loop {
+            let mut message = 0u32;
+            let mut key = 0usize;
+            let mut overlapped: *mut OVERLAPPED = std::ptr::null_mut();
+            let ok = GetQueuedCompletionStatus(port, &mut message, &mut key, &mut overlapped, 0);
+            if ok == 0 && overlapped.is_null() {
+                break;
+            }
+            match message {
+                job_msg::PROCESS_MEMORY_LIMIT | job_msg::JOB_MEMORY_LIMIT => hit = Some(LimitHit::Memory),
+                job_msg::END_OF_PROCESS_TIME | job_msg::END_OF_JOB_TIME if hit.is_none() => hit = Some(LimitHit::Cpu),
+                _ => {}
+            }
+        }
+        if hit.is_some() {
+            return hit;
+        }
         if let Some(limit) = limits.memory_bytes {
             let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
             let ok = QueryInformationJobObject(
