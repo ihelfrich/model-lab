@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")"
 uv sync --locked --python 3.14
-cargo test --locked --features acceptance
+cargo test --workspace --locked --features tree-ensemble-lab/acceptance
 # The shipped binary carries no verification harness; build it with
 # `--features acceptance` into a separate target dir when running verify_*.py.
 # Strip build-machine paths (panic locations) from the shipped binary.

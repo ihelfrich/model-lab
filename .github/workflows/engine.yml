@@ -1,0 +1,27 @@
+name: engine
+on:
+  push:
+    branches: [main, engine-supervisor]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # The application's own tests need a scientific Python and run in the
+      # Windows student package workflow; this job covers the two crates.
+      - name: Test the engine and supervisor crates
+        run: cargo test -p model-lab-engine -p model-lab-supervisor --locked
+      - name: Build the engine in release
+        run: cargo build -p model-lab-engine --release --locked

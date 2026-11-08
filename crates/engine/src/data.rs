@@ -15,6 +15,11 @@ impl Table {
     pub fn parse_research(name: &str, text: &str) -> Result<Self, String> {
         Self::parse_limited(name, text, 50000, 67)
     }
+    /// Parse with an explicit row limit (supervised jobs raise the 5,000-row
+    /// interactive bound); columns stay at 64 predictors plus the response.
+    pub fn parse_with_limit(name: &str, text: &str, max_rows: usize) -> Result<Self, String> {
+        Self::parse_limited(name, text, max_rows, 65)
+    }
     fn parse_limited(
         name: &str,
         text: &str,
@@ -195,7 +200,7 @@ impl Table {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Data {
     pub names: Vec<String>,
     pub target: String,
