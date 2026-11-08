@@ -210,10 +210,12 @@ Designer's calls, open to revision:
   the app offers to download when the learner reaches them, stating the
   size. Porting sandwich/cluster/HAC inference and the study machinery
   into the engine crate is a later option, not Phase 1.
-- **Every job goes through the supervisor.** The native engine runs as a
-  supervised sidecar (the same binary in a `--engine-job` mode) for any
-  experiment above the interactive bound (5,000 rows today), with stage
-  checkpoints for boosting and forests, which are naturally stage-wise.
+- **Every job goes through the supervisor.** *Implemented for native fits
+  on 2026-11-08 (plan 1 of 3):* the engine ships a separate
+  `model-lab-engine-job` binary rather than a mode of the application
+  binary; it runs under `model-lab-supervisor` for any experiment above the
+  interactive bound (5,000 rows), with stage checkpoints for boosting and
+  forests, which are naturally stage-wise.
   Small interactive fits may still run in-process on a thread with the
   existing cancel flag. The 50,000-row job in "done" is therefore a native
   boosting job under the supervisor; the interactive row bound is raised
@@ -314,6 +316,21 @@ causal estimators via PyFixest and DoubleML.
   before the first push so the original files never reached GitHub.
 - Signing: ad-hoc remains until a Developer ID is approved; the design
   must not depend on notarization but must be ready for it.
+- Network denial (builder's call, plan 1, 2026-11-08): the supervisor
+  records a requested denial in the job manifest as "not restricted
+  (requested denial is not enforced in this build)" rather than claiming
+  it; there is no portable per-process network denial without a sandbox.
+  Enforcement moves to plan 3 with the pixi layer.
+- Forest and stochastic-boosting randomness (builder's call, plan 1,
+  2026-11-08): shipped as engine 0.9 with saved-experiment schema 2 and
+  `docs/CHANGED-RESULTS.md`, because resumable jobs need tree *t*
+  reproducible from (seed, t). Single trees, full-data boosting and all
+  linear models are unchanged from 0.8.
+- Platform limits (builder's call, plan 1): memory limits are kernel-
+  enforced on Linux (RLIMIT_AS) and Windows (Job Object) and
+  sampler-enforced on macOS, which rejects small address-space rlimits;
+  CPU limits are RLIMIT_CPU and Job Object time limits; SIGTERM-triggered
+  final checkpoints are Unix-only.
 - Order of implementation inside Phase 1, except that the engine crate
   extraction and the supervisor come before any lesson, and lesson 2
   (boosting by hand) is the first lesson built, because it is the one
