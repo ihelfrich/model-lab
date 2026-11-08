@@ -19,6 +19,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Diagnose lock-file drift (temporary)
+        shell: bash
+        run: |
+          cargo --version
+          cp Cargo.lock /tmp/before.lock
+          cargo generate-lockfile --offline || cargo generate-lockfile
+          diff /tmp/before.lock Cargo.lock || true
+          cp /tmp/before.lock Cargo.lock
       - name: Test the workspace
         run: cargo test --workspace --locked
       - name: Build the engine in release
