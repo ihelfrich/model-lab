@@ -13,3 +13,14 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 rand = "=0.8.5"
 sha2 = "=0.10.9"
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+# Scripted child process used only by this crate's tests.
+[[bin]]
+name = "fake-worker"
+path = "src/bin/fake-worker.rs"

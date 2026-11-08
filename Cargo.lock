@@ -1675,10 +1675,12 @@ dependencies = [
 name = "model-lab-supervisor"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "rand",
  "serde",
  "serde_json",
  "sha2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
