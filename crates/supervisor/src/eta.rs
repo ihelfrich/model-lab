@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 
 /// Fewest completed units before any estimate is offered.
 pub const MIN_UNITS: u32 = 3;
+/// Most per-unit durations retained (the newest).
+pub const MAX_OBSERVATIONS: usize = 1024;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct EtaRange {
@@ -28,6 +30,11 @@ impl Eta {
         Self::default()
     }
 
+    /// Per-unit durations currently retained.
+    pub fn observations(&self) -> usize {
+        self.per_unit.len()
+    }
+
     /// Record that `units_done` units have completed as of `at`. Repeats and
     /// decreases are ignored; several units completing between calls share
     /// the interval evenly.
@@ -35,8 +42,16 @@ impl Eta {
         match (self.last_units, self.last_at) {
             (Some(prev), Some(prev_at)) if units_done > prev => {
                 let n = units_done - prev;
-                let each = at.saturating_duration_since(prev_at) / (n as u32);
-                self.per_unit.extend(std::iter::repeat(each).take(n as usize));
+                let divisor = n.min(u32::MAX as u64) as u32;
+                let each = at.saturating_duration_since(prev_at) / divisor;
+                // Retain the newest MAX_OBSERVATIONS; a jump larger than that
+                // contributes that many equal durations, not one per unit.
+                let add = (n as usize).min(MAX_OBSERVATIONS);
+                self.per_unit.extend(std::iter::repeat(each).take(add));
+                if self.per_unit.len() > MAX_OBSERVATIONS {
+                    let excess = self.per_unit.len() - MAX_OBSERVATIONS;
+                    self.per_unit.drain(..excess);
+                }
                 self.last_units = Some(units_done);
                 self.last_at = Some(at);
             }
@@ -121,6 +136,18 @@ mod tests {
         let later = eta.estimate(20, t0 + secs(t + 200.)).unwrap();
         assert_eq!(later.low, Duration::ZERO);
         assert_eq!(later.high, Duration::ZERO);
+    }
+
+    #[test]
+    fn a_huge_unit_jump_is_bounded_and_does_not_divide_by_zero() {
+        let t0 = Instant::now();
+        let mut eta = Eta::new();
+        eta.observe(0, t0);
+        eta.observe(1u64 << 32, t0 + secs(1.));
+        eta.observe((1u64 << 32) + 5_000_000, t0 + secs(2.));
+        assert!(eta.observations() <= MAX_OBSERVATIONS);
+        let r = eta.estimate(1u64 << 33, t0 + secs(2.)).unwrap();
+        assert!(r.low <= r.high);
     }
 
     #[test]

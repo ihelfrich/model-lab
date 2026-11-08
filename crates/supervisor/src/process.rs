@@ -109,7 +109,22 @@ fn read_lines<R: std::io::Read + Send + 'static>(
     wrap: fn(String) -> ChildLine,
 ) {
     std::thread::spawn(move || {
-        for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+        let mut reader = BufReader::new(pipe);
+        let mut buffer = Vec::new();
+        loop {
+            buffer.clear();
+            match reader.read_until(b'\n', &mut buffer) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            if buffer.last() == Some(&b'\n') {
+                buffer.pop();
+                if buffer.last() == Some(&b'\r') {
+                    buffer.pop();
+                }
+            }
+            // Bytes that are not UTF-8 are replaced, never fatal.
+            let line = String::from_utf8_lossy(&buffer).into_owned();
             if tx.send(wrap(line)).is_err() {
                 break;
             }

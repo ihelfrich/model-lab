@@ -97,6 +97,35 @@ fn main() {
                 }
                 i += 1;
             }
+            "--bytes" => {
+                // One line that is not UTF-8, then keep talking.
+                out.write_all(&[b'b', b'a', b'd', 0xff, 0xfe, b'\n']).unwrap();
+                out.flush().unwrap();
+            }
+            "--close-stdout" => {
+                // Close both pipes while staying alive (daemon style).
+                #[cfg(unix)]
+                unsafe {
+                    libc::close(1);
+                    libc::close(2);
+                }
+                #[cfg(windows)]
+                {
+                    // Detach the console handles: nothing more is written.
+                    drop(out);
+                    std::thread::sleep(Duration::from_secs_f64(next(i).parse().unwrap()));
+                    std::process::exit(0);
+                }
+            }
+            "--segfault" => {
+                out.flush().unwrap();
+                // A real fault, not a raised signal (Rust's handler swallows raise).
+                unsafe {
+                    let p: *mut u8 = std::ptr::null_mut();
+                    p.write_volatile(1);
+                }
+                std::process::exit(139);
+            }
             "--print-env" => {
                 let mut vars: Vec<_> = std::env::vars().collect();
                 vars.sort();

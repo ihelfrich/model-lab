@@ -23,6 +23,9 @@ pub const KILL_GRACE: Duration = Duration::from_secs(2);
 pub const MEMORY_STRIKES: u32 = 2;
 /// Lines of stderr kept for the failure message.
 pub const STDERR_TAIL: usize = 20;
+/// Longest the job thread waits to deliver a terminal event to a consumer
+/// that is not reading before giving up on it.
+pub const TERMINAL_DELIVERY: Duration = Duration::from_secs(30);
 
 pub struct JobSpec {
     pub label: String,
@@ -46,6 +49,8 @@ pub enum JobEvent {
         latest: Option<Sample>,
     },
     Output(String),
+    /// A resource reading, emitted on every sample so a quiet job is still visible.
+    Sample(Sample),
     Checkpoint { path: String, sha256: String },
     Completed { result: serde_json::Value, wall: Duration },
     Failed { error: String, limit: Option<LimitHit>, wall: Duration },
@@ -96,7 +101,7 @@ impl Supervisor {
             command.env.push((CHECKPOINT_ENV.into(), path.to_string_lossy().into_owned()));
         }
         let child = spawn(command, &nonce, &spec.limits)?;
-        let worker = JobThread { spec, nonce, child, tx, cancel: cancel.clone(), finished: finished.clone() };
+        let worker = JobThread { spec, nonce, child, tx, cancel: cancel.clone(), finished: finished.clone(), wall_deadline: None };
         let thread = std::thread::spawn(move || worker.run());
         self.jobs.lock().unwrap().retain(|r| r.thread.as_ref().is_some_and(|t| !t.is_finished()));
         self.jobs.lock().unwrap().push(Running { cancel: cancel.clone(), thread: Some(thread) });
@@ -130,6 +135,8 @@ struct JobThread {
     tx: SyncSender<JobEvent>,
     cancel: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
+    /// When the wall-clock limit falls, if one is set.
+    wall_deadline: Option<Instant>,
 }
 
 enum Outcome {
@@ -177,13 +184,50 @@ impl JobThread {
 }
 
 impl JobThread {
+    /// Deliver an event. A full channel applies backpressure (the child
+    /// blocks on its pipe meanwhile, so no output is lost), but the wait
+    /// yields to cancel and to the wall clock, so a consumer that stops
+    /// reading never takes control of the job away from the supervisor.
     fn emit(&self, event: JobEvent) {
-        // Nobody listening is not an error: the job still runs to its end.
-        let _ = self.tx.send(event);
+        let mut event = event;
+        loop {
+            match self.tx.try_send(event) {
+                Ok(()) | Err(std::sync::mpsc::TrySendError::Disconnected(_)) => return,
+                Err(std::sync::mpsc::TrySendError::Full(e)) => {
+                    if self.cancel.load(Ordering::Relaxed)
+                        || self.wall_deadline.is_some_and(|d| Instant::now() >= d)
+                    {
+                        return;
+                    }
+                    event = e;
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+        }
+    }
+
+    /// Deliver the last event, waiting a bounded time for a slow consumer.
+    fn emit_terminal(&self, event: JobEvent) {
+        let mut event = event;
+        let deadline = Instant::now() + TERMINAL_DELIVERY;
+        loop {
+            match self.tx.try_send(event) {
+                Ok(()) => return,
+                Err(std::sync::mpsc::TrySendError::Disconnected(_)) => return,
+                Err(std::sync::mpsc::TrySendError::Full(e)) => {
+                    if Instant::now() >= deadline {
+                        return;
+                    }
+                    event = e;
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+        }
     }
 
     fn run(mut self) {
         let started = Instant::now();
+        self.wall_deadline = self.spec.limits.wall.map(|w| started + w);
         let started_at_ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
         self.emit(JobEvent::Started { pid: self.child.pid(), started_at_ms, limits: self.spec.limits.describe() });
         let (sample_tx, sample_rx) = sync_channel::<Sample>(64);
@@ -191,24 +235,28 @@ impl JobThread {
         let mut st = LoopState::default();
         let mut strikes = 0u32;
         let outcome = loop {
-            // Lines from the child.
+            // Lines from the child. Closed pipes with a live child must not spin.
             match self.child.lines().recv_timeout(Duration::from_millis(50)) {
                 Ok(line) => self.handle_line(line, &mut st),
-                Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => std::thread::sleep(Duration::from_millis(50)),
             }
-            // Resource samples and the sampler-enforced memory limit.
+            // Resource samples; the sampler enforces the memory limit only where
+            // the kernel does not (macOS), so a mis-attributed process cannot
+            // end a job the kernel is already policing.
             loop {
                 match sample_rx.try_recv() {
                     Ok(s) => {
                         if let Some(limit) = self.spec.limits.memory_bytes {
                             strikes = if s.rss_bytes > limit { strikes + 1 } else { 0 };
                         }
+                        self.emit(JobEvent::Sample(s.clone()));
                         st.latest = Some(s);
                     }
                     Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
                 }
             }
-            if strikes >= MEMORY_STRIKES {
+            if cfg!(target_os = "macos") && strikes >= MEMORY_STRIKES {
                 let _ = self.child.kill_tree(KILL_GRACE);
                 break Outcome::Failed(format!("memory use exceeded {} MiB", self.spec.limits.memory_bytes.unwrap_or(0) / (1024 * 1024)), Some(LimitHit::Memory));
             }
@@ -252,13 +300,17 @@ impl JobThread {
                 };
             }
         };
+        // Close our end first so the sampler can never be stuck sending.
+        drop(sample_rx);
         sampler.stop();
         let wall = started.elapsed();
-        match outcome {
-            Outcome::Completed(result) => self.emit(JobEvent::Completed { result, wall }),
-            Outcome::Failed(error, limit) => self.emit(JobEvent::Failed { error, limit, wall }),
-        }
+        // The job is over before its last event is delivered: a consumer that
+        // is not reading must not keep `is_finished` false.
         self.finished.store(true, Ordering::Relaxed);
+        match outcome {
+            Outcome::Completed(result) => self.emit_terminal(JobEvent::Completed { result, wall }),
+            Outcome::Failed(error, limit) => self.emit_terminal(JobEvent::Failed { error, limit, wall }),
+        }
         // Dropping `child` kills anything left in the tree.
     }
 }

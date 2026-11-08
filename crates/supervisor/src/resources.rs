@@ -51,8 +51,11 @@ impl Sampler {
                 next += interval;
                 system.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh);
                 let sample = measure(&system, root_pid, &mut known, started.elapsed());
-                if sink.send(sample).is_err() {
-                    break;
+                // A full channel drops this sample rather than blocking the
+                // sampler (and whoever joins it); a disconnected one ends it.
+                match sink.try_send(sample) {
+                    Ok(()) | Err(std::sync::mpsc::TrySendError::Full(_)) => {}
+                    Err(std::sync::mpsc::TrySendError::Disconnected(_)) => break,
                 }
                 while Instant::now() < next && !flag.load(Ordering::Relaxed) {
                     std::thread::sleep(Duration::from_millis(10).min(next.saturating_duration_since(Instant::now())));
@@ -89,6 +92,9 @@ fn in_group(pid: u32, root_pid: u32) -> bool {
 }
 
 fn measure(system: &System, root_pid: u32, known: &mut HashSet<u32>, elapsed: Duration) -> Sample {
+    // Forget members that have gone, so a reused pid is not mistaken for one
+    // of ours; the root stays as the anchor of the parent chain.
+    known.retain(|pid| *pid == root_pid || system.process(Pid::from_u32(*pid)).is_some());
     // Grow the sticky set until it stops changing: a child may be listed before its parent.
     loop {
         let before = known.len();

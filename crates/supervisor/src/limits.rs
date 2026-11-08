@@ -219,14 +219,16 @@ pub(crate) fn violation(
 }
 
 /// Which limit, if any, a Unix exit status indicates. SIGXCPU is the CPU
-/// rlimit; a process that died of SIGABRT or SIGSEGV while a memory limit
-/// was set is taken to have failed an allocation under RLIMIT_AS (Linux).
+/// rlimit. On Linux only, where RLIMIT_AS is applied, a process that died
+/// of SIGABRT or SIGSEGV while a memory limit was set is taken to have
+/// failed an allocation; elsewhere no memory rlimit exists and a crash is
+/// just a crash.
 #[cfg(unix)]
 pub(crate) fn violation(status: std::process::ExitStatus, limits: &Limits) -> Option<LimitHit> {
     use std::os::unix::process::ExitStatusExt;
     match status.signal() {
         Some(libc::SIGXCPU) => Some(LimitHit::Cpu),
-        Some(libc::SIGABRT) | Some(libc::SIGSEGV) if limits.memory_bytes.is_some() => Some(LimitHit::Memory),
+        Some(libc::SIGABRT) | Some(libc::SIGSEGV) if cfg!(target_os = "linux") && limits.memory_bytes.is_some() => Some(LimitHit::Memory),
         _ => None,
     }
 }

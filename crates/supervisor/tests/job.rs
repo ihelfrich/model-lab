@@ -109,7 +109,13 @@ fn cancel_emits_failed_canceled_and_nothing_after() {
     let first = handle.events().recv_timeout(Duration::from_secs(5)).unwrap();
     assert!(matches!(first, JobEvent::Started { .. }), "{first:?}");
     handle.cancel();
-    let next = handle.events().recv_timeout(Duration::from_secs(5)).unwrap();
+    // Samples and output may still arrive; the first non-sample event is the end.
+    let next = loop {
+        match handle.events().recv_timeout(Duration::from_secs(5)).unwrap() {
+            JobEvent::Sample(_) | JobEvent::Output(_) => continue,
+            other => break other,
+        }
+    };
     match next {
         JobEvent::Failed { error, .. } => assert_eq!(error, "canceled"),
         other => panic!("expected Failed(canceled), got {other:?}"),
@@ -171,11 +177,93 @@ fn memory_limit_ends_the_job_via_the_supervisor() {
 
 #[test]
 fn progress_emitted_right_before_exit_is_not_lost() {
-    // Ten units written back to back, then exit: every one must arrive even
+    // Two thousand units written back to back, then exit: every one must arrive even
     // though most are still in the pipe when the child's exit is noticed.
     let sup = Supervisor::new();
     let handle = sup.start(spec(&["--emit", "2000"], Limits::default())).unwrap();
     let events = collect(&handle, Duration::from_secs(20));
     let progress = events.iter().filter(|e| matches!(e, JobEvent::Progress { .. })).count();
     assert_eq!(progress, 2000, "last events: {:?}", &events[events.len().saturating_sub(3)..]);
+}
+
+#[test]
+fn non_utf8_output_does_not_stop_the_reader() {
+    let sup = Supervisor::new();
+    let handle = sup.start(spec(&["--bytes", "--flood", "20000"], Limits { wall: Some(Duration::from_secs(20)), ..Default::default() })).unwrap();
+    let events = collect(&handle, Duration::from_secs(15));
+    let outputs = events.iter().filter(|e| matches!(e, JobEvent::Output(_))).count();
+    assert!(outputs >= 20000, "{outputs} output lines; last {:?}", events.last());
+    assert!(matches!(events.last(), Some(JobEvent::Failed { limit: None, .. })), "{:?}", events.last());
+}
+
+#[test]
+fn cancel_is_honoured_while_the_consumer_is_not_reading() {
+    // A flooding worker and a consumer that never drains: cancel must still end the job.
+    let sup = Supervisor::new();
+    let handle = sup.start(spec(&["--flood", "2000000", "--sleep", "30"], Limits::default())).unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    handle.cancel();
+    let deadline = Instant::now() + Duration::from_secs(6);
+    while !handle.is_finished() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(handle.is_finished(), "job did not finish after cancel while the consumer was idle");
+}
+
+#[test]
+fn fast_sampling_during_the_kill_grace_does_not_hang_shutdown() {
+    let sup = Supervisor::new();
+    let handle = sup.start(JobSpec { sample_interval: Duration::from_millis(1), ..spec(&["--trap-term"], Limits::default()) }).unwrap();
+    let _ = handle.events().recv_timeout(Duration::from_secs(5)).unwrap(); // Started
+    std::thread::sleep(Duration::from_millis(300));
+    handle.cancel();
+    let events = collect(&handle, Duration::from_secs(8));
+    assert!(matches!(events.last(), Some(JobEvent::Failed { error, .. }) if error == "canceled"), "{:?}", events.last());
+    let started = Instant::now();
+    drop(handle);
+    sup.shutdown();
+    assert!(started.elapsed() < Duration::from_secs(5), "shutdown took {:?}", started.elapsed());
+}
+
+#[cfg(unix)]
+#[test]
+fn closed_pipes_do_not_spin_the_job_thread() {
+    fn user_cpu() -> Duration {
+        let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+        unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+        Duration::new(usage.ru_utime.tv_sec as u64, (usage.ru_utime.tv_usec * 1000) as u32)
+    }
+    // The sampler's own refresh cost is the same in both runs; only a spinning
+    // job loop would make the closed-pipe run markedly more expensive.
+    let sup = Supervisor::new();
+    let before = user_cpu();
+    let baseline = collect(&sup.start(spec(&["--sleep", "2"], Limits::default())).unwrap(), Duration::from_secs(10));
+    let open_pipes = user_cpu() - before;
+    assert!(matches!(baseline.last(), Some(JobEvent::Failed { .. })), "{:?}", baseline.last());
+    let before = user_cpu();
+    let events = collect(&sup.start(spec(&["--close-stdout", "--sleep", "2"], Limits::default())).unwrap(), Duration::from_secs(10));
+    let closed_pipes = user_cpu() - before;
+    assert!(matches!(events.last(), Some(JobEvent::Failed { .. })), "{:?}", events.last());
+    assert!(closed_pipes < open_pipes + Duration::from_millis(400), "closed pipes cost {closed_pipes:?} against {open_pipes:?} with open pipes");
+}
+
+#[test]
+fn samples_are_events_of_their_own() {
+    let sup = Supervisor::new();
+    let handle = sup.start(JobSpec { sample_interval: Duration::from_millis(200), ..spec(&["--sleep", "2"], Limits::default()) }).unwrap();
+    let events = collect(&handle, Duration::from_secs(10));
+    let samples = events.iter().filter(|e| matches!(e, JobEvent::Sample(_))).count();
+    assert!(samples >= 5, "{samples} samples in 2 s at 200 ms");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_crash_under_a_memory_limit_is_not_called_a_memory_hit_on_macos() {
+    let sup = Supervisor::new();
+    let handle = sup.start(spec(&["--segfault"], Limits { memory_bytes: Some(512 * 1024 * 1024), ..Default::default() })).unwrap();
+    let events = collect(&handle, Duration::from_secs(10));
+    match events.last() {
+        Some(JobEvent::Failed { limit, .. }) => assert_eq!(*limit, None, "no memory rlimit applies on macOS"),
+        other => panic!("expected Failed, got {other:?}"),
+    }
 }
