@@ -168,3 +168,14 @@ fn memory_limit_ends_the_job_via_the_supervisor() {
         other => panic!("expected Failed{{limit: Memory}}, got {other:?}"),
     }
 }
+
+#[test]
+fn progress_emitted_right_before_exit_is_not_lost() {
+    // Ten units written back to back, then exit: every one must arrive even
+    // though most are still in the pipe when the child's exit is noticed.
+    let sup = Supervisor::new();
+    let handle = sup.start(spec(&["--emit", "2000"], Limits::default())).unwrap();
+    let events = collect(&handle, Duration::from_secs(20));
+    let progress = events.iter().filter(|e| matches!(e, JobEvent::Progress { .. })).count();
+    assert_eq!(progress, 2000, "last events: {:?}", &events[events.len().saturating_sub(3)..]);
+}

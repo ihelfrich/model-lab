@@ -137,6 +137,45 @@ enum Outcome {
     Failed(String, Option<LimitHit>),
 }
 
+#[derive(Default)]
+struct LoopState {
+    eta: Eta,
+    latest: Option<Sample>,
+    stderr_tail: VecDeque<String>,
+    result: Option<Outcome>,
+}
+
+impl JobThread {
+    /// One line from the child, before or after its exit: the same handling
+    /// in both places, so nothing written just before exit is lost.
+    fn handle_line(&self, line: ChildLine, st: &mut LoopState) {
+        match line {
+            ChildLine::Stdout(text) => match protocol::parse_line(&text, &self.nonce) {
+                Line::Event(envelope) => match envelope.kind {
+                    Kind::Progress { units_done, units_total, unit, stage } => {
+                        let now = Instant::now();
+                        st.eta.observe(units_done, now);
+                        let total = units_total.or(self.spec.units_total);
+                        let estimate = total.and_then(|t| st.eta.estimate(t, now));
+                        self.emit(JobEvent::Progress { units_done, units_total: total, unit, stage, eta: estimate, latest: st.latest.clone() });
+                    }
+                    Kind::Checkpoint { path, sha256 } => self.emit(JobEvent::Checkpoint { path, sha256 }),
+                    Kind::Completed { result } => st.result = Some(Outcome::Completed(result)),
+                    Kind::Failed { error } => st.result = Some(Outcome::Failed(error, None)),
+                },
+                Line::Output(text) => self.emit(JobEvent::Output(text)),
+            },
+            ChildLine::Stderr(text) => {
+                if st.stderr_tail.len() == STDERR_TAIL {
+                    st.stderr_tail.pop_front();
+                }
+                st.stderr_tail.push_back(text.clone());
+                self.emit(JobEvent::Output(text));
+            }
+        }
+    }
+}
+
 impl JobThread {
     fn emit(&self, event: JobEvent) {
         // Nobody listening is not an error: the job still runs to its end.
@@ -149,36 +188,12 @@ impl JobThread {
         self.emit(JobEvent::Started { pid: self.child.pid(), started_at_ms, limits: self.spec.limits.describe() });
         let (sample_tx, sample_rx) = sync_channel::<Sample>(64);
         let sampler = Sampler::start(self.child.pid(), self.spec.sample_interval, sample_tx);
-        let mut eta = Eta::new();
-        let mut latest: Option<Sample> = None;
+        let mut st = LoopState::default();
         let mut strikes = 0u32;
-        let mut stderr_tail: VecDeque<String> = VecDeque::with_capacity(STDERR_TAIL);
-        let mut result: Option<Outcome> = None;
         let outcome = loop {
             // Lines from the child.
             match self.child.lines().recv_timeout(Duration::from_millis(50)) {
-                Ok(ChildLine::Stdout(line)) => match protocol::parse_line(&line, &self.nonce) {
-                    Line::Event(envelope) => match envelope.kind {
-                        Kind::Progress { units_done, units_total, unit, stage } => {
-                            let now = Instant::now();
-                            eta.observe(units_done, now);
-                            let total = units_total.or(self.spec.units_total);
-                            let estimate = total.and_then(|t| eta.estimate(t, now));
-                            self.emit(JobEvent::Progress { units_done, units_total: total, unit, stage, eta: estimate, latest: latest.clone() });
-                        }
-                        Kind::Checkpoint { path, sha256 } => self.emit(JobEvent::Checkpoint { path, sha256 }),
-                        Kind::Completed { result: value } => result = Some(Outcome::Completed(value)),
-                        Kind::Failed { error } => result = Some(Outcome::Failed(error, None)),
-                    },
-                    Line::Output(text) => self.emit(JobEvent::Output(text)),
-                },
-                Ok(ChildLine::Stderr(line)) => {
-                    if stderr_tail.len() == STDERR_TAIL {
-                        stderr_tail.pop_front();
-                    }
-                    stderr_tail.push_back(line.clone());
-                    self.emit(JobEvent::Output(line));
-                }
+                Ok(line) => self.handle_line(line, &mut st),
                 Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
             }
             // Resource samples and the sampler-enforced memory limit.
@@ -188,7 +203,7 @@ impl JobThread {
                         if let Some(limit) = self.spec.limits.memory_bytes {
                             strikes = if s.rss_bytes > limit { strikes + 1 } else { 0 };
                         }
-                        latest = Some(s);
+                        st.latest = Some(s);
                     }
                     Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
                 }
@@ -209,37 +224,29 @@ impl JobThread {
             }
             // Exit.
             if let Ok(Some(status)) = self.child.try_wait() {
-                // Drain what the pipes still hold; a descendant may keep them
-                // open, so this wait is bounded.
-                let deadline = Instant::now() + Duration::from_secs(1);
-                while Instant::now() < deadline {
+                // Drain what the pipes still hold. A descendant may keep them
+                // open, so the wait is bounded: one second of silence ends it.
+                let mut idle_since = Instant::now();
+                loop {
                     match self.child.lines().recv_timeout(Duration::from_millis(50)) {
-                        Ok(ChildLine::Stdout(line)) => match protocol::parse_line(&line, &self.nonce) {
-                            Line::Event(envelope) => match envelope.kind {
-                                Kind::Completed { result: value } => result = Some(Outcome::Completed(value)),
-                                Kind::Failed { error } => result = Some(Outcome::Failed(error, None)),
-                                Kind::Checkpoint { path, sha256 } => self.emit(JobEvent::Checkpoint { path, sha256 }),
-                                Kind::Progress { .. } => {}
-                            },
-                            Line::Output(text) => self.emit(JobEvent::Output(text)),
-                        },
-                        Ok(ChildLine::Stderr(line)) => {
-                            if stderr_tail.len() == STDERR_TAIL {
-                                stderr_tail.pop_front();
-                            }
-                            stderr_tail.push_back(line.clone());
-                            self.emit(JobEvent::Output(line));
+                        Ok(line) => {
+                            self.handle_line(line, &mut st);
+                            idle_since = Instant::now();
                         }
                         Err(RecvTimeoutError::Disconnected) => break,
-                        Err(RecvTimeoutError::Timeout) => {}
+                        Err(RecvTimeoutError::Timeout) => {
+                            if idle_since.elapsed() >= Duration::from_secs(1) {
+                                break;
+                            }
+                        }
                     }
                 }
-                break match result.take() {
+                break match st.result.take() {
                     Some(Outcome::Completed(v)) if status.success() => Outcome::Completed(v),
                     Some(Outcome::Failed(e, l)) => Outcome::Failed(e, l),
                     _ => {
                         let limit = self.child.limit_violation(&self.spec.limits);
-                        let tail: Vec<String> = stderr_tail.iter().cloned().collect();
+                        let tail: Vec<String> = st.stderr_tail.iter().cloned().collect();
                         Outcome::Failed(format!("worker exited ({status}) without a result; last stderr:\n{}", tail.join("\n")), limit)
                     }
                 };
