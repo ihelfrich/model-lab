@@ -85,8 +85,9 @@ jobs:
           $p = Start-Process $exe -ArgumentList '--workbench-ui-smoke-test','--software-renderer','--report',$report,'--screenshot',$image -PassThru
           if (-not $p.WaitForExit(180000)) { Stop-Process -Id $p.Id -Force; throw 'Workbench UI test timed out' }
           if ($p.ExitCode -ne 0) { throw "Workbench UI exited $($p.ExitCode)" }
+          Get-Content $report
           $r = Get-Content $report | ConvertFrom-Json
-          if ($r.status -ne 'passed' -or $r.models_rendered.Count -ne 9 -or $r.views_rendered.Count -ne 7 -or -not $r.screenshot) { throw 'Workbench acceptance incomplete' }
+          if ($r.status -ne 'passed' -or $r.models_rendered.Count -ne 9 -or $r.views_rendered.Count -ne 8 -or -not $r.screenshot) { throw 'Workbench acceptance incomplete' }
           if ((Get-Item $image).Length -lt 10000) { throw 'Workbench screenshot missing' }
       - name: Verify independent research numerics
         run: |
