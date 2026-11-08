@@ -46,6 +46,16 @@ fn main() {
                 // Exit without waiting so the grandchild outlives its parent.
                 std::process::exit(0);
             }
+            "--grandchild-alloc" => {
+                // Spawn a grandchild that allocates MB and sleeps, report its pid, exit.
+                let child = std::process::Command::new(std::env::current_exe().unwrap())
+                    .args(["--alloc", &next(i)])
+                    .spawn()
+                    .unwrap();
+                writeln!(out, "grandchild_pid={}", child.id()).unwrap();
+                out.flush().unwrap();
+                std::process::exit(0);
+            }
             "--sleep" => {
                 std::thread::sleep(Duration::from_secs_f64(next(i).parse().unwrap()));
                 i += 1;

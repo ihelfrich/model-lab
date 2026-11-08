@@ -13,6 +13,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 rand = "=0.8.5"
 sha2 = "=0.10.9"
+sysinfo = { version = "=0.40.1", default-features = false, features = ["system"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
