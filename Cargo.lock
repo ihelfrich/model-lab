@@ -1668,6 +1668,16 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "model-lab-supervisor"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
