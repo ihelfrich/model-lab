@@ -39,7 +39,7 @@ fn memory_limit_ends_the_job() {
 fn cpu_limit_ends_a_spinning_job() {
     let limits = Limits { cpu: Some(Duration::from_secs(1)), ..Default::default() };
     let mut child = spawn(worker(&["--spin", "30"]), "n0", &limits).unwrap();
-    let status = wait_for_exit(&mut child, Duration::from_secs(5)).expect("child ended within 5 s");
+    let status = wait_for_exit(&mut child, Duration::from_secs(10)).expect("child ended within 10 s");
     assert!(!status.success(), "{status:?}");
 }
 

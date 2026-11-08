@@ -6,7 +6,9 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+#[cfg(unix)]
+use std::time::Instant;
 
 /// Channel capacity for child output; a flooding child blocks on the pipe
 /// instead of growing the supervisor's memory.

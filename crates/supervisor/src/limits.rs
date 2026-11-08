@@ -85,6 +85,7 @@ pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32:
         CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_JOB_TIME,
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+        JOB_OBJECT_LIMIT_PROCESS_TIME,
     };
     unsafe {
         let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
@@ -98,8 +99,11 @@ pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32:
             info.ProcessMemoryLimit = bytes as usize;
         }
         if let Some(cpu) = limits.cpu {
-            info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_JOB_TIME;
+            // Both: the per-process limit ends the offending process promptly;
+            // the job limit caps the tree as a whole.
+            info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_JOB_TIME | JOB_OBJECT_LIMIT_PROCESS_TIME;
             info.BasicLimitInformation.PerJobUserTimeLimit = (cpu.as_nanos() / 100) as i64;
+            info.BasicLimitInformation.PerProcessUserTimeLimit = (cpu.as_nanos() / 100) as i64;
         }
         if SetInformationJobObject(
             job,
@@ -122,6 +126,7 @@ pub(crate) fn violation(job: windows_sys::Win32::Foundation::HANDLE) -> Option<L
     use windows_sys::Win32::System::JobObjects::{
         JobObjectLimitViolationInformation, QueryInformationJobObject,
         JOBOBJECT_LIMIT_VIOLATION_INFORMATION, JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+        JOB_OBJECT_LIMIT_PROCESS_TIME,
     };
     unsafe {
         let mut info: JOBOBJECT_LIMIT_VIOLATION_INFORMATION = std::mem::zeroed();
@@ -137,7 +142,7 @@ pub(crate) fn violation(job: windows_sys::Win32::Foundation::HANDLE) -> Option<L
         }
         if info.ViolationLimitFlags & JOB_OBJECT_LIMIT_PROCESS_MEMORY != 0 {
             Some(LimitHit::Memory)
-        } else if info.ViolationLimitFlags & JOB_OBJECT_LIMIT_JOB_TIME != 0 {
+        } else if info.ViolationLimitFlags & (JOB_OBJECT_LIMIT_JOB_TIME | JOB_OBJECT_LIMIT_PROCESS_TIME) != 0 {
             Some(LimitHit::Cpu)
         } else {
             None
