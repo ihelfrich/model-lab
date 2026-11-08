@@ -25,9 +25,12 @@ fn drain(child: &Child) -> Vec<String> {
 fn process_exists(pid: u32) -> bool {
     #[cfg(unix)]
     {
-        // kill(pid, 0) succeeds for live processes (including zombies, which
-        // our test does not produce: the grandchild is reparented and reaped).
-        unsafe { libc::kill(pid as i32, 0) == 0 }
+        // A killed process may linger as a zombie until its new parent reaps
+        // it (CI runners often do not), so ask ps for the state and treat
+        // zombies as gone.
+        let out = std::process::Command::new("ps").args(["-o", "stat=", "-p", &pid.to_string()]).output().unwrap();
+        let stat = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        !stat.is_empty() && !stat.starts_with('Z')
     }
     #[cfg(windows)]
     {

@@ -130,20 +130,18 @@ impl Child {
     }
 
     /// Terminate the whole tree: a polite signal, `grace`, then a forced kill,
-    /// and wait for the direct child. Returns once it has exited.
+    /// and wait for the direct child. The group is signalled even when the
+    /// direct child has already exited, because its descendants may not have.
     pub fn kill_tree(&mut self, grace: Duration) -> std::io::Result<ExitStatus> {
-        if let Some(s) = self.try_wait()? {
-            return Ok(s);
-        }
         #[cfg(unix)]
         {
             let pgid = self.pid() as i32;
+            // ESRCH (no such group) is the normal outcome once everything is gone.
             unsafe { libc::killpg(pgid, libc::SIGTERM) };
             let deadline = Instant::now() + grace;
             while Instant::now() < deadline {
-                if let Some(s) = self.try_wait()? {
-                    unsafe { libc::killpg(pgid, libc::SIGKILL) };
-                    return Ok(s);
+                if self.try_wait()?.is_some() {
+                    break;
                 }
                 std::thread::sleep(Duration::from_millis(20));
             }
@@ -155,6 +153,9 @@ impl Child {
             use windows_sys::Win32::System::JobObjects::TerminateJobObject;
             unsafe { TerminateJobObject(self.job, 1) };
         }
+        if let Some(s) = self.status {
+            return Ok(s);
+        }
         let s = self.inner.wait()?;
         self.status = Some(s);
         Ok(s)
@@ -163,9 +164,8 @@ impl Child {
 
 impl Drop for Child {
     fn drop(&mut self) {
-        if matches!(self.try_wait(), Ok(None)) {
-            let _ = self.kill_tree(Duration::from_secs(2));
-        }
+        // Always: the direct child may be gone while its descendants live on.
+        let _ = self.kill_tree(Duration::from_secs(2));
         #[cfg(windows)]
         unsafe {
             windows_sys::Win32::Foundation::CloseHandle(self.job);
