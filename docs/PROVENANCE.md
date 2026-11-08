@@ -31,3 +31,14 @@ The shipped Windows zip differs from the CI artifact because notes and
 licences were appended locally after CI; the claim that the executable and
 runtime entries were preserved is self-reported in
 `verification-windows-package.json`.
+
+## History rewrite before publication (2026-11-07)
+
+Before the first push to GitHub the local history was rewritten with
+`git filter-repo`: the original three course-data CSV blobs and the
+delivery-readiness note were stripped from every commit, and the student's
+name was replaced in the two files that carried it. Consequently the import
+commit and the Phase 0 commits do not contain `examples/*.csv`; checking
+them out will not build (`include_str!` fails) until the synthetic tables
+from `examples/generate.py` are written. The current head builds and passes
+its tests with the synthetic tables.
