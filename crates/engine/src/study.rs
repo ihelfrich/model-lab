@@ -1,5 +1,5 @@
 //! Typed simulation contracts and canonical project artifact identities.
-use crate::adapter;
+use crate::provenance::{identity, sha256};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -7,7 +7,6 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-pub const WORKER: &str = include_str!("../python/study_worker.py");
 pub const PROTOCOL: u64 = 2;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -345,7 +344,7 @@ impl StudyDocument {
         if self.schema_version != 2
             || self.study_id != entry.id
             || self.spec != entry.spec
-            || self.spec_sha256 != adapter::sha256(entry.spec_wire.as_bytes())
+            || self.spec_sha256 != sha256(entry.spec_wire.as_bytes())
             || self.spec_wire != entry.spec_wire
         {
             return Err("Study checkpoint identity/specification mismatch.".into());
@@ -499,7 +498,7 @@ pub struct StudyRef {
 impl StudyRef {
     pub fn new(spec: StudySpec, store: &str) -> Result<Self, String> {
         spec.validate()?;
-        let id = adapter::identity();
+        let id = identity();
         let spec_wire = spec.wire();
         Ok(Self {
             relative_path: format!("{store}/{id}.json"),
@@ -557,7 +556,7 @@ impl StudyRef {
     pub fn request(&self, project: &Path, operation: &str) -> Result<Value, String> {
         self.spec.validate()?;
         Ok(
-            json!({"schema_version":2,"request_id":adapter::identity(),"operation":operation,"study_id":self.id,"study_spec":self.spec,"spec_wire":self.spec_wire,"project_root":project.parent().ok_or("Missing project folder")?.canonicalize().map_err(|e|e.to_string())?,"checkpoint_path":self.path(project)?}),
+            json!({"schema_version":2,"request_id":identity(),"operation":operation,"study_id":self.id,"study_spec":self.spec,"spec_wire":self.spec_wire,"project_root":project.parent().ok_or("Missing project folder")?.canonicalize().map_err(|e|e.to_string())?,"checkpoint_path":self.path(project)?}),
         )
     }
     pub fn load(&self, project: &Path) -> Result<StudyDocument, String> {
@@ -582,19 +581,13 @@ pub fn read_checkpoint(path: &Path) -> Result<Value, String> {
         .as_str()
         .ok_or("Missing checkpoint document wire")?;
     if envelope["schema_version"] != 2
-        || envelope["document_sha256"].as_str() != Some(&adapter::sha256(wire.as_bytes()))
+        || envelope["document_sha256"].as_str() != Some(&sha256(wire.as_bytes()))
     {
         return Err("Study checkpoint integrity validation failed.".into());
     }
     serde_json::from_str(wire).map_err(|e| e.to_string())
 }
 
-pub fn manifest() -> Value {
-    json!({"study_worker.py":adapter::sha256(WORKER.as_bytes()),"research_worker.py":adapter::sha256(adapter::WORKER.as_bytes())})
-}
-pub fn bundle_hash() -> String {
-    adapter::sha256(&serde_json::to_vec(&manifest()).unwrap())
-}
 pub fn validate_request(request: &Value) -> Result<(), String> {
     if request["schema_version"].as_u64() != Some(PROTOCOL)
         || request["request_id"].as_str().is_none_or(str::is_empty)

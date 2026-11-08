@@ -2,10 +2,13 @@
 //! documents, with no user-interface dependency.
 
 pub mod data;
+pub mod decision;
 pub mod experiment;
 pub mod linear;
 pub mod model;
+pub mod provenance;
 pub mod science;
+pub mod study;
 
 #[cfg(test)]
 mod boundary {

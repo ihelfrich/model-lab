@@ -19,7 +19,7 @@ mod research_acceptance;
 mod research_ui;
 use model_lab_engine::science;
 mod studio;
-mod study;
+use model_lab_engine::study;
 #[cfg(feature = "acceptance")]
 mod study_acceptance;
 mod study_ui;

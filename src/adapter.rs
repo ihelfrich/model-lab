@@ -5,33 +5,25 @@ use crate::{
     experiment::{self, ModelId, Run, RunConfig},
 };
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         mpsc, Arc,
     },
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 pub const SCHEMA: u64 = 1;
 pub const WORKER: &str = include_str!("../python/research_worker.py");
-static NEXT: AtomicU64 = AtomicU64::new(0);
-pub fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+pub use model_lab_engine::provenance::{identity, sha256};
+pub const STUDY_WORKER: &str = include_str!("../python/study_worker.py");
+pub fn study_manifest() -> Value {
+    json!({"study_worker.py":sha256(STUDY_WORKER.as_bytes()),"research_worker.py":sha256(WORKER.as_bytes())})
 }
-pub fn identity() -> String {
-    format!(
-        "{}-{}-{}",
-        std::process::id(),
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    )
+pub fn study_bundle_hash() -> String {
+    sha256(&serde_json::to_vec(&study_manifest()).unwrap())
 }
 
 #[cfg_attr(not(feature = "acceptance"), allow(dead_code))]
@@ -48,7 +40,7 @@ impl ModelAdapter for StudyAdapter {
         "scientific-study"
     }
     fn manifest(&self) -> Value {
-        json!({"schema_version":crate::study::PROTOCOL,"backend":self.id(),"engine_version":env!("CARGO_PKG_VERSION"),"worker_bundle_sha256":crate::study::bundle_hash(),"sources":crate::study::manifest(),"operations":["study_preflight","study_preview","simulate","study_inspect","study_export"],"scenarios":["heteroskedasticity","confounding","clustering"],"models":["ols","ridge","forest"],"actual_trace":false,"known_truth_scope":"Declared simulation only"})
+        json!({"schema_version":crate::study::PROTOCOL,"backend":self.id(),"engine_version":env!("CARGO_PKG_VERSION"),"worker_bundle_sha256":study_bundle_hash(),"sources":study_manifest(),"operations":["study_preflight","study_preview","simulate","study_inspect","study_export"],"scenarios":["heteroskedasticity","confounding","clustering"],"models":["ols","ridge","forest"],"actual_trace":false,"known_truth_scope":"Declared simulation only"})
     }
     fn validate(&self, request: &Value) -> Result<(), String> {
         crate::study::validate_request(request)
@@ -230,7 +222,7 @@ pub fn launch(request: Value, interpreter: String) -> Result<Session, String> {
     let prepare = (|| {
         std::fs::write(directory.join("research_worker.py"), WORKER).map_err(|e| e.to_string())?;
         if study {
-            std::fs::write(directory.join("study_worker.py"), crate::study::WORKER)
+            std::fs::write(directory.join("study_worker.py"), STUDY_WORKER)
                 .map_err(|e| e.to_string())?;
         }
         std::fs::write(directory.join("request.json"), &bytes).map_err(|e| e.to_string())
@@ -389,8 +381,8 @@ pub fn validate_response(request: &Value, wire: &[u8], response: &Value) -> Resu
             || response["request_id"] != request["request_id"]
             || response["operation"] != request["operation"]
             || response["request_sha256"].as_str() != Some(&sha256(wire))
-            || response["worker_sha256"].as_str() != Some(&sha256(crate::study::WORKER.as_bytes()))
-            || response["worker_bundle_sha256"].as_str() != Some(&crate::study::bundle_hash())
+            || response["worker_sha256"].as_str() != Some(&sha256(STUDY_WORKER.as_bytes()))
+            || response["worker_bundle_sha256"].as_str() != Some(&study_bundle_hash())
         {
             return Err("Study response identity, source bundle or wire hash mismatch.".into());
         }

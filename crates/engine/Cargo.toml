@@ -12,3 +12,4 @@ path = "src/lib.rs"
 serde = { version = "=1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 rand = "=0.8.5"
+sha2 = "=0.10.9"
