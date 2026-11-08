@@ -162,6 +162,21 @@ impl Child {
     }
 }
 
+impl Child {
+    /// After exit: which configured limit, if any, ended the process.
+    pub fn limit_violation(&self, limits: &Limits) -> Option<crate::limits::LimitHit> {
+        #[cfg(windows)]
+        {
+            let _ = limits;
+            crate::limits::violation(self.job)
+        }
+        #[cfg(unix)]
+        {
+            self.status.and_then(|s| crate::limits::violation(s, limits))
+        }
+    }
+}
+
 impl Drop for Child {
     fn drop(&mut self) {
         // Always: the direct child may be gone while its descendants live on.

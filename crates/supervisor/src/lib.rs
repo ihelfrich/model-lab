@@ -5,6 +5,7 @@
 
 pub mod checkpoint;
 pub mod eta;
+pub mod job;
 pub mod limits;
 pub mod process;
 pub mod protocol;

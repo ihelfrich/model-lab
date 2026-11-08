@@ -115,3 +115,45 @@ pub(crate) fn create_job(limits: &Limits) -> std::io::Result<windows_sys::Win32:
         Ok(job)
     }
 }
+
+/// Which limit, if any, the Job Object reports as violated (Windows).
+#[cfg(windows)]
+pub(crate) fn violation(job: windows_sys::Win32::Foundation::HANDLE) -> Option<LimitHit> {
+    use windows_sys::Win32::System::JobObjects::{
+        JobObjectLimitViolationInformation, QueryInformationJobObject,
+        JOBOBJECT_LIMIT_VIOLATION_INFORMATION, JOB_OBJECT_LIMIT_JOB_TIME, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+    };
+    unsafe {
+        let mut info: JOBOBJECT_LIMIT_VIOLATION_INFORMATION = std::mem::zeroed();
+        let ok = QueryInformationJobObject(
+            job,
+            JobObjectLimitViolationInformation,
+            &mut info as *mut _ as *mut _,
+            std::mem::size_of::<JOBOBJECT_LIMIT_VIOLATION_INFORMATION>() as u32,
+            std::ptr::null_mut(),
+        );
+        if ok == 0 {
+            return None;
+        }
+        if info.ViolationLimitFlags & JOB_OBJECT_LIMIT_PROCESS_MEMORY != 0 {
+            Some(LimitHit::Memory)
+        } else if info.ViolationLimitFlags & JOB_OBJECT_LIMIT_JOB_TIME != 0 {
+            Some(LimitHit::Cpu)
+        } else {
+            None
+        }
+    }
+}
+
+/// Which limit, if any, a Unix exit status indicates. SIGXCPU is the CPU
+/// rlimit; a process that died of SIGABRT or SIGSEGV while a memory limit
+/// was set is taken to have failed an allocation under RLIMIT_AS (Linux).
+#[cfg(unix)]
+pub(crate) fn violation(status: std::process::ExitStatus, limits: &Limits) -> Option<LimitHit> {
+    use std::os::unix::process::ExitStatusExt;
+    match status.signal() {
+        Some(libc::SIGXCPU) => Some(LimitHit::Cpu),
+        Some(libc::SIGABRT) | Some(libc::SIGSEGV) if limits.memory_bytes.is_some() => Some(LimitHit::Memory),
+        _ => None,
+    }
+}

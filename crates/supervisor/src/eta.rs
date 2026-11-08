@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 /// Fewest completed units before any estimate is offered.
 pub const MIN_UNITS: u32 = 3;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct EtaRange {
     pub low: Duration,
     pub high: Duration,

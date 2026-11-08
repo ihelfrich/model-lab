@@ -43,8 +43,9 @@ fn main() {
                     .unwrap();
                 writeln!(out, "grandchild_pid={}", child.id()).unwrap();
                 out.flush().unwrap();
-                // Exit without waiting so the grandchild outlives its parent.
-                std::process::exit(0);
+                // Do not wait: with no further arguments the parent exits and
+                // the grandchild outlives it; with `--sleep` the parent stays.
+                std::mem::forget(child);
             }
             "--grandchild-alloc" => {
                 // Spawn a grandchild that allocates MB and sleeps, report its pid, exit.
