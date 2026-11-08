@@ -36,7 +36,7 @@ def main():
                 raise RuntimeError(f'Native lifecycle run {index+1} exited {completed.returncode}: {completed.stderr[-4000:]}')
             value = json.loads(report.read_text())
             assert value['status'] == 'passed' and len(value['models_rendered']) == 9
-            assert len(value['views_rendered']) == 7 and value['screenshot']
+            assert len(value['views_rendered']) == 8 and value['screenshot']
             results.append({'run': index+1, 'compact': bool(index % 2), 'exit_code': 0, 'native_frames': value['native_frames']})
             print(f'Native launch/render/close {index+1}/{args.runs}: passed', flush=True)
     result = {'status':'passed', 'macos':platform.mac_ver()[0], 'architecture':platform.machine(), 'runs':results,
