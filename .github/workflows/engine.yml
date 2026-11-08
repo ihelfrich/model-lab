@@ -19,15 +19,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Diagnose lock-file drift (temporary)
-        shell: bash
-        run: |
-          cargo --version
-          cp Cargo.lock /tmp/before.lock
-          cargo update --workspace --verbose
-          diff /tmp/before.lock Cargo.lock || true
-          cp /tmp/before.lock Cargo.lock
-      - name: Test the workspace
-        run: cargo test --workspace --locked
+      # The application's own tests need a scientific Python and run in the
+      # Windows student package workflow; this job covers the two crates.
+      - name: Test the engine and supervisor crates
+        run: cargo test -p model-lab-engine -p model-lab-supervisor --locked
       - name: Build the engine in release
         run: cargo build -p model-lab-engine --release --locked
