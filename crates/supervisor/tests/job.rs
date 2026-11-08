@@ -233,18 +233,14 @@ fn closed_pipes_do_not_spin_the_job_thread() {
         unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
         Duration::new(usage.ru_utime.tv_sec as u64, (usage.ru_utime.tv_usec * 1000) as u32)
     }
-    // The sampler's own refresh cost is the same in both runs; only a spinning
-    // job loop would make the closed-pipe run markedly more expensive.
+    // Sample once only, so the sampler's refresh cost does not hide the loop's
+    // own: a spinning loop would burn most of the two seconds of CPU.
     let sup = Supervisor::new();
     let before = user_cpu();
-    let baseline = collect(&sup.start(spec(&["--sleep", "2"], Limits::default())).unwrap(), Duration::from_secs(10));
-    let open_pipes = user_cpu() - before;
-    assert!(matches!(baseline.last(), Some(JobEvent::Failed { .. })), "{:?}", baseline.last());
-    let before = user_cpu();
-    let events = collect(&sup.start(spec(&["--close-stdout", "--sleep", "2"], Limits::default())).unwrap(), Duration::from_secs(10));
-    let closed_pipes = user_cpu() - before;
+    let events = collect(&sup.start(JobSpec { sample_interval: Duration::from_secs(60), ..spec(&["--close-stdout", "--sleep", "2"], Limits::default()) }).unwrap(), Duration::from_secs(10));
+    let spent = user_cpu() - before;
     assert!(matches!(events.last(), Some(JobEvent::Failed { .. })), "{:?}", events.last());
-    assert!(closed_pipes < open_pipes + Duration::from_millis(400), "closed pipes cost {closed_pipes:?} against {open_pipes:?} with open pipes");
+    assert!(spent < Duration::from_millis(600), "job thread burned {spent:?} of CPU while the child slept with closed pipes");
 }
 
 #[test]
