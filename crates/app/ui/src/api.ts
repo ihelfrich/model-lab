@@ -124,7 +124,57 @@ export type JobEvent =
   | { event: "completed"; result: unknown; wall: DurationJson }
   | { event: "failed"; error: string; limit: string | null; wall: DurationJson };
 
+export type PredictionKind = "direction" | { number: { tolerance: number } } | { choice: { options: string[] } };
+
+export interface Reveal {
+  actual: string;
+  correct: boolean;
+  explanation_html: string;
+  saved: boolean;
+}
+
+export interface Answered {
+  chosen: number[];
+  correct: boolean;
+  explanation_html: string;
+  from_earlier_setting: boolean;
+  saved: boolean;
+}
+
+export interface PredictionView {
+  id: string;
+  prompt_html: string;
+  kind: PredictionKind;
+  committed: string | null;
+  revealed: Reveal | null;
+}
+
+export interface QuestionView {
+  id: string;
+  concept: string;
+  stem_html: string;
+  options_html: string[];
+  order: number[];
+  multiple: boolean;
+  answered: Answered | null;
+  locked_until_prediction: string | null;
+}
+
+export interface CheckPanel {
+  predictions: PredictionView[];
+  questions: QuestionView[];
+  record_notice: string | null;
+  history: { attempts: number; predictions: number; answers: number; correct_answers: number; last_attempt_ms: number | null };
+  mastered: string[];
+}
+
 export const api = {
+  checkPanel: (lessonId: string, runId: string) => invoke<CheckPanel>("check_panel", { lessonId, runId }),
+  commitPrediction: (lessonId: string, runId: string, promptId: string, predicted: string) =>
+    invoke<Reveal>("commit_prediction", { lessonId, runId, promptId, predicted }),
+  answerQuestion: (lessonId: string, runId: string, questionId: string, chosen: number[]) =>
+    invoke<Answered>("answer_question", { lessonId, runId, questionId, chosen }),
+  exportRecord: () => invoke<string>("export_record"),
   startJob: (lessonId: string, csvPath: string, overrides: Record<string, number>) =>
     invoke<string>("start_job", { lessonId, csvPath, overrides }),
   listJobs: () => invoke<Manifest[]>("list_jobs"),

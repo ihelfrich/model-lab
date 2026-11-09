@@ -4,7 +4,9 @@
       "id": "p1",
       "prompt": "Does the prediction for x = 2 go up or down?",
       "kind": "direction",
-      "reveals": "selected.h"
+      "reveals": "selected.h",
+      "row": 1,
+      "stage": 1
     }
   ],
   "questions": [
@@ -39,7 +41,7 @@
       ],
       "live": true,
       "requires_prediction": "p1",
-      "explanation": "A depth-one tree can only produce two values, so four distinct outcomes cannot all be matched; the rate of 0.5 also takes only half of each correction."
+      "explanation": "After one round the MSE is {{byhand.round.0.mse_after:.4f}}: a depth-one tree can only produce two values, so four distinct outcomes cannot all be matched, and the learning rate takes only part of each correction."
     }
   ]
 }

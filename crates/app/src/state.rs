@@ -38,6 +38,7 @@ pub struct AppState {
     pub jobs: Mutex<Jobs>,
     pub record: Mutex<Option<Record>>,
     pub record_error: Mutex<Option<String>>,
+    pub session: Mutex<Option<i64>>,
     pub instructor: AtomicBool,
 }
 
@@ -71,6 +72,7 @@ impl AppState {
             jobs: Mutex::new(jobs),
             record: Mutex::new(record),
             record_error: Mutex::new(record_error),
+            session: Mutex::new(None),
             instructor: AtomicBool::new(instructor),
         }
     }

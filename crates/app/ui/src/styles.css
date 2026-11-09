@@ -78,3 +78,10 @@ a { color: inherit; }
 .rules { padding-left: 1.2rem; }
 .jobs { display: grid; gap: 1rem; margin-top: 1rem; }
 .job h2 { margin: 0 0 0.3rem; font-size: 1.1rem; }
+.prediction, .question, .record { margin: 1rem 0; }
+.predict-form, .answer-form { display: grid; gap: 0.6rem; margin-top: 0.6rem; max-width: 36rem; }
+.answer-form fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
+.option { display: flex; gap: 0.5rem; align-items: baseline; }
+.result { font-weight: 600; color: var(--c-valid); }
+.result.ok { color: var(--c-oob); }
+.explanation { border-left: 3px solid var(--c-slice); padding-left: 0.8rem; margin-top: 0.5rem; }

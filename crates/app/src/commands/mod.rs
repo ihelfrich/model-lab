@@ -3,3 +3,4 @@
 pub mod experiment;
 pub mod jobs;
 pub mod lessons;
+pub mod record;

@@ -15,6 +15,7 @@ pub struct RunEntry {
     pub view: Option<Arc<RunView>>,
     pub experiment_hash: Option<String>,
     pub cancel: Arc<AtomicBool>,
+    pub check: crate::commands::record::CheckState,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -48,7 +49,7 @@ pub fn start_experiment(state: &Arc<AppState>, lesson_id: &str, overrides: Value
     let cancel = Arc::new(AtomicBool::new(false));
     state.runs.lock().map_err(|_| "runs unavailable")?.insert(
         run_id.clone(),
-        RunEntry { lesson_id: lesson_id.to_string(), status: Status::Running, view: None, experiment_hash: None, cancel: cancel.clone() },
+        RunEntry { lesson_id: lesson_id.to_string(), status: Status::Running, view: None, experiment_hash: None, cancel: cancel.clone(), check: Default::default() },
     );
     let state2 = state.clone();
     let id2 = run_id.clone();
@@ -86,6 +87,7 @@ pub fn register_view(state: &AppState, lesson_id: &str, view: RunView, hash: Str
             view: Some(Arc::new(view)),
             experiment_hash: Some(hash),
             cancel: Arc::new(AtomicBool::new(false)),
+            check: Default::default(),
         },
     );
     Ok(run_id)

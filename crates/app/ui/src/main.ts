@@ -6,6 +6,7 @@ import { applyTheme } from "./theme";
 import { renderRead } from "./panels/read";
 import { renderRun } from "./panels/run";
 import { renderJobs } from "./panels/jobs";
+import { renderCheck } from "./panels/check";
 
 type Panel = "read" | "run" | "check";
 
@@ -88,7 +89,7 @@ async function renderLesson(id: string, panel: Panel): Promise<void> {
   } else if (panel === "run") {
     await renderRun(id, host);
   } else {
-    host.append(el("p", { class: "notice" }, `The ${panel} panel arrives with the next task.`));
+    await renderCheck(id, host);
   }
 }
 

@@ -106,7 +106,17 @@ pub struct Prediction {
     pub id: String,
     pub prompt: String,
     pub kind: PredictionKind,
+    /// Template path of the quantity the reveal compares against.
     pub reveals: String,
+    /// The observation the quantity is read for (when it is `selected.*`).
+    #[serde(default)]
+    pub row: Option<usize>,
+    /// The stage the quantity is read at; the last stage when absent.
+    #[serde(default)]
+    pub stage: Option<usize>,
+    /// Templated text shown with the reveal.
+    #[serde(default)]
+    pub explanation: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
