@@ -77,7 +77,11 @@ on macOS, `%APPDATA%\org.ianhelfrich.modellab` on Windows): `lessons/`,
 `model-lab-engine-job` is built in release by `packaging/sidecar.py` and
 copied to `crates/app/binaries/model-lab-engine-job-<triple>`; Tauri bundles
 it beside the application binary. Release builds look for it there only.
-Debug builds also honour `MODEL_LAB_ENGINE_JOB` and `target/debug/`.
+Debug builds also honour `MODEL_LAB_ENGINE_JOB` and `target/debug/`. Because
+`tauri-build` insists the sidecar file exists even for `cargo test`, the
+app's `build.rs` writes a zero-byte placeholder in debug builds when none is
+there; `sidecar.py --check` treats a placeholder as missing, and release
+builds get no placeholder.
 
 ## Developing
 

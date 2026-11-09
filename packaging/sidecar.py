@@ -51,7 +51,7 @@ def main(argv: list[str]) -> int:
     built = target_dir() / "release" / exe(NAME, triple)
     copy = BINARIES / exe(f"{NAME}-{triple}", triple)
     if "--check" in argv:
-        if not copy.is_file():
+        if not copy.is_file() or copy.stat().st_size == 0:
             print(f"sidecar missing: {copy.relative_to(ROOT)}", file=sys.stderr)
             return 2
         if not built.is_file():

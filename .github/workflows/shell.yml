@@ -30,10 +30,10 @@ jobs:
         run: npm --prefix crates/app/ui ci
       - name: Front-end unit tests
         run: npm --prefix crates/app/ui test -- --run
-      - name: Rust tests (every crate but the egui application)
-        run: cargo test --workspace --locked --exclude tree-ensemble-lab
       - name: Build the engine job sidecar
         run: python packaging/sidecar.py && python packaging/sidecar.py --check
+      - name: Rust tests (every crate but the egui application)
+        run: cargo test --workspace --locked --exclude tree-ensemble-lab
       - name: Build the Tauri bundle (macOS, build-machine paths remapped)
         if: runner.os == 'macOS'
         env:
