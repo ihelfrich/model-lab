@@ -1,3 +1,19 @@
+MODEL LAB (new shell, Phase 1)
+
+Model Lab is a Tauri desktop application in crates/app with lessons as data
+under lessons/. It teaches by running real experiments on the Rust engine
+(crates/engine), supervising large jobs in a separate process
+(crates/supervisor and the model-lab-engine-job sidecar), and keeping a local
+learner record (crates/record). Nothing leaves the machine.
+
+Build: run "Build Mac.command" or "Build Windows.cmd"; the Model Lab bundle
+lands in target/release/bundle. Develop: from crates/app run
+ui/node_modules/.bin/tauri dev (after npm ci in crates/app/ui).
+Lessons: see lessons/README.md and docs/ARCHITECTURE.md. Your own lessons go
+in the application data directory under lessons/.
+
+RESEARCH TOOL (0.8 shell, kept through Phase 1)
+
 TREE ENSEMBLE LAB 0.5
 
 QUICK START

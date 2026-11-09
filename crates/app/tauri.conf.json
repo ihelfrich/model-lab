@@ -34,6 +34,9 @@
     ],
     "resources": {
       "../../lessons/": "lessons/"
-    }
+    },
+    "externalBin": [
+      "binaries/model-lab-engine-job"
+    ]
   }
 }
