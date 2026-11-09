@@ -2,4 +2,5 @@
 //! webview invokes. The webview renders; Rust decides.
 pub mod commands;
 pub mod experiment;
+pub mod jobs;
 pub mod state;

@@ -5,6 +5,7 @@ export type Level = "Beginner" | "Intermediate" | "Advanced";
 export interface LessonCard {
   id: string;
   title: string;
+  kind: "run" | "by_hand";
   level: Level;
   estimated_minutes: number;
   prerequisites: string[];
@@ -79,7 +80,57 @@ export interface RunPanel {
   kind: "run" | "by_hand";
 }
 
+export type JobStatus = "running" | "interrupted" | "completed" | "failed" | "canceled";
+
+export interface Manifest {
+  id: string;
+  label: string;
+  lesson_id: string;
+  created_ms: number;
+  status: JobStatus;
+  units_total: number | null;
+  last_checkpoint_stage: number | null;
+  units_done: number;
+  error: string | null;
+}
+
+export interface Sample {
+  at_ms: number;
+  cpu_percent: number;
+  rss_bytes: number;
+  processes: number;
+  gpu_memory_bytes: number | null;
+}
+
+export interface DurationJson {
+  secs: number;
+  nanos: number;
+}
+
+export type JobEvent =
+  | { event: "started"; pid: number; started_at_ms: number; limits: string }
+  | {
+      event: "progress";
+      units_done: number;
+      units_total: number | null;
+      unit: string;
+      stage: string | null;
+      eta: { low: DurationJson; high: DurationJson; units_observed: number; units_remaining: number } | null;
+      latest: Sample | null;
+    }
+  | { event: "output"; [k: string]: unknown }
+  | ({ event: "sample" } & Sample)
+  | { event: "checkpoint"; path: string; sha256: string }
+  | { event: "completed"; result: unknown; wall: DurationJson }
+  | { event: "failed"; error: string; limit: string | null; wall: DurationJson };
+
 export const api = {
+  startJob: (lessonId: string, csvPath: string, overrides: Record<string, number>) =>
+    invoke<string>("start_job", { lessonId, csvPath, overrides }),
+  listJobs: () => invoke<Manifest[]>("list_jobs"),
+  resumeJob: (jobId: string) => invoke<string>("resume_job", { jobId }),
+  cancelJob: (jobId: string) => invoke<void>("cancel_job", { jobId }),
+  openJobResult: (jobId: string) => invoke<string>("open_job_result", { jobId }),
   startExperiment: (lessonId: string, overrides: Record<string, number>) =>
     invoke<string>("start_experiment", { lessonId, overrides }),
   experimentStatus: (runId: string) => invoke<Status>("experiment_status", { runId }),

@@ -9,6 +9,7 @@ use std::sync::atomic::Ordering;
 pub struct LessonCard {
     pub id: String,
     pub title: String,
+    pub kind: model_lab_lessons::lesson::Kind,
     pub level: Level,
     pub estimated_minutes: u32,
     pub prerequisites: Vec<String>,
@@ -35,6 +36,7 @@ pub fn list_lessons(state: &AppState) -> Result<Vec<LessonCard>, String> {
         .map(|l| LessonCard {
             id: l.front.id.clone(),
             title: l.front.title.clone(),
+            kind: l.experiment.kind,
             level: l.front.level,
             estimated_minutes: l.front.estimated_minutes,
             prerequisites: l.front.prerequisites.clone(),

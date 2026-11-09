@@ -5,6 +5,7 @@ import { el, announce } from "./dom";
 import { applyTheme } from "./theme";
 import { renderRead } from "./panels/read";
 import { renderRun } from "./panels/run";
+import { renderJobs } from "./panels/jobs";
 
 type Panel = "read" | "run" | "check";
 
@@ -91,12 +92,21 @@ async function renderLesson(id: string, panel: Panel): Promise<void> {
   }
 }
 
+let cleanup: (() => void) | null = null;
+
 async function render(): Promise<void> {
   const route = parseRoute(location.hash);
+  if (route.kind !== "jobs") {
+    cleanup?.();
+    cleanup = null;
+  }
   await renderHeader();
   try {
     if (route.kind === "lesson" && route.id) await renderLesson(route.id, route.panel ?? "read");
-    else if (route.kind === "jobs") main.replaceChildren(el("h1", {}, "Jobs"), el("p", { class: "notice" }, "Supervised jobs arrive with a later task."));
+    else if (route.kind === "jobs") {
+      cleanup?.();
+      cleanup = await renderJobs(main);
+    }
     else await renderCurriculum();
   } catch (e) {
     main.replaceChildren(el("h1", {}, "Something did not load"), el("pre", { class: "error" }, String(e)));

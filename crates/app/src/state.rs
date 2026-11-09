@@ -1,5 +1,6 @@
 use model_lab_lessons::lesson::{load_all, Lesson, LessonError};
 use crate::commands::experiment::RunEntry;
+use crate::jobs::{Jobs, Sink};
 use model_lab_record::Record;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -34,6 +35,7 @@ pub struct AppState {
     pub lessons: RwLock<Vec<Lesson>>,
     pub lesson_errors: RwLock<Vec<LessonError>>,
     pub runs: Mutex<HashMap<String, RunEntry>>,
+    pub jobs: Mutex<Jobs>,
     pub record: Mutex<Option<Record>>,
     pub record_error: Mutex<Option<String>>,
     pub instructor: AtomicBool,
@@ -44,6 +46,11 @@ impl AppState {
     /// learner record. A record that cannot be opened is reported, not
     /// fatal: lessons still work, answers are not saved.
     pub fn new(dirs: Dirs) -> AppState {
+        Self::with_sink(dirs, std::sync::Arc::new(|_: &str, _: &model_lab_supervisor::job::JobEvent| {}))
+    }
+
+    /// As `new`, forwarding every job event to `sink` (the shell emits them to the webview).
+    pub fn with_sink(dirs: Dirs, sink: Sink) -> AppState {
         let (lessons, lesson_errors) = load_all(&[dirs.bundled_lessons.clone(), dirs.user_lessons.clone()]);
         let record_path = dirs.record.join("default.sqlite");
         let (record, record_error) = match Record::open(&record_path) {
@@ -55,11 +62,13 @@ impl AppState {
             .and_then(|r| r.meta_get("instructor").ok().flatten())
             .map(|v| v == "on")
             .unwrap_or(false);
+        let jobs = Jobs::load(&dirs.jobs, sink);
         AppState {
             dirs,
             lessons: RwLock::new(lessons),
             lesson_errors: RwLock::new(lesson_errors),
             runs: Mutex::new(HashMap::new()),
+            jobs: Mutex::new(jobs),
             record: Mutex::new(record),
             record_error: Mutex::new(record_error),
             instructor: AtomicBool::new(instructor),
