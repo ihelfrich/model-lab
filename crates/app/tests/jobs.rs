@@ -207,3 +207,93 @@ fn eta_is_shown_only_as_a_range_with_its_count() {
     }
     assert!(progress.iter().any(|(_, e)| e.is_some()));
 }
+
+/// The Phase 1 "done" job at the shell's job layer: 50,000 rows, 120 trees of
+/// depth 3, checkpoints every 10 trees, a quit after the fifth checkpoint and
+/// a resume to the identical result. Minutes long; run on demand with
+/// `cargo test -p model-lab-app --test jobs -- --ignored walkthrough` (debug profile, which honours the override).
+/// Set MODEL_LAB_ENGINE_JOB to the release sidecar to exercise the shipped binary.
+#[test]
+#[ignore]
+fn walkthrough_fifty_thousand_row_job_quits_and_resumes() {
+    if std::env::var("MODEL_LAB_ENGINE_JOB").is_err() {
+        ensure_engine_job();
+    }
+    let root = tmp("walkthrough");
+    let csv = root.join("income-50k.csv");
+    {
+        // The income mechanism of examples/generate.py, 50,000 rows.
+        let mut s: u64 = 20261109;
+        let mut next = || {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (s >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let mut text = String::from("age,year,income\n");
+        for _ in 0..50_000 {
+            let age = 18.0 + (next() * 53.0).floor();
+            let year = 2000.0 + (next() * 13.0).floor();
+            let mean = 30.0 + 2.6 * (age - 18.0) - 0.038 * (age - 18.0).powi(2) + 1.1 * (year - 2000.0);
+            let sd = 6.0 + 0.18 * (age - 18.0);
+            let (u1, u2) = (next().max(1e-12), next());
+            let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
+            text.push_str(&format!("{age},{year},{:.6}\n", (mean + sd * z).max(5.0)));
+        }
+        std::fs::write(&csv, text).unwrap();
+    }
+    let mut exp = experiment();
+    exp.target = "income".into();
+    exp.features = vec!["age".into(), "year".into()];
+    exp.config.tree.trees = 120;
+    exp.config.tree.depth = 3;
+    exp.checkpoint_every_trees = 10;
+    let jobs_dir = root.join("jobs");
+    let started = Instant::now();
+    let fresh = {
+        let (sink, _e, _rx) = sink();
+        let jobs = Jobs::load(&jobs_dir, sink);
+        let id = jobs.start("boosting-on-data", "walkthrough", &exp, &csv, &serde_json::json!({})).unwrap();
+        wait_status(&jobs, &id, JobStatus::Completed, Duration::from_secs(900));
+        std::fs::read(jobs.job_dir(&id).join("result.json")).unwrap()
+    };
+    let fresh_secs = started.elapsed().as_secs();
+    let id = {
+        let (sink, _e, rx) = sink();
+        let jobs = Jobs::load(&jobs_dir, sink);
+        let id = jobs.start("boosting-on-data", "walkthrough", &exp, &csv, &serde_json::json!({})).unwrap();
+        let mut checkpoints = 0;
+        let mut etas = 0;
+        let deadline = Instant::now() + Duration::from_secs(900);
+        while Instant::now() < deadline {
+            if let Ok((_, e)) = rx.recv_timeout(Duration::from_millis(200)) {
+                match e {
+                    JobEvent::Checkpoint { .. } => {
+                        checkpoints += 1;
+                        if checkpoints == 5 {
+                            break;
+                        }
+                    }
+                    JobEvent::Progress { eta: Some(_), latest: Some(_), .. } => etas += 1,
+                    _ => {}
+                }
+            }
+        }
+        assert_eq!(checkpoints, 5);
+        assert!(etas > 0, "no progress event carried an ETA range and a resource sample");
+        drop(jobs);
+        id
+    };
+    assert_eq!(std::process::Command::new("pgrep").arg("-f").arg("model-lab-engine-job").output().map(|o| o.stdout.is_empty()).unwrap_or(true), true, "an engine job survived the quit");
+    let resumed_at = Instant::now();
+    let (sink, _e, _rx) = sink();
+    let jobs = Jobs::load(&jobs_dir, sink);
+    let m = jobs.manifest(&id).unwrap();
+    assert_eq!(m.status, JobStatus::Interrupted);
+    assert_eq!(m.last_checkpoint_stage, Some(50));
+    jobs.resume(&id).unwrap();
+    wait_status(&jobs, &id, JobStatus::Completed, Duration::from_secs(900));
+    let resumed = std::fs::read(jobs.job_dir(&id).join("result.json")).unwrap();
+    assert_eq!(resumed, fresh);
+    let (run, _) = jobs.open_result(&id).unwrap();
+    assert_eq!(run.trace.len(), 121);
+    eprintln!("walkthrough: fresh {fresh_secs}s, resume from 50 {}s", resumed_at.elapsed().as_secs());
+}
