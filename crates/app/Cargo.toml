@@ -1,0 +1,28 @@
+[package]
+name = "model-lab-app"
+version = "0.9.0"
+edition = "2021"
+description = "Model Lab desktop shell: Tauri backend holding lessons, experiments, jobs and the learner record"
+publish = false
+
+[lib]
+name = "model_lab_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "model-lab"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+model-lab-engine = { path = "../engine" }
+model-lab-supervisor = { path = "../supervisor" }
+model-lab-lessons = { path = "../lessons" }
+model-lab-record = { path = "../record" }
+tauri = { version = "=2.12.5", features = [] }
+tauri-plugin-dialog = "=2.8.4"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+sha2 = "=0.10.9"

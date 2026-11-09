@@ -1,0 +1,55 @@
+:root {
+  --c-train: #2a6f97;
+  --c-valid: #c8553d;
+  --c-oob: #5b8e7d;
+  --c-slice: #7b6d8d;
+  --c-highlight: #f2a541;
+  --bg: #ffffff;
+  --fg: #1b1f24;
+  --muted: #5a6470;
+  --surface: #f4f6f8;
+  --border: #d5dbe1;
+  --focus: #2a6f97;
+  font-size: 100%;
+}
+:root[data-theme="dark"] {
+  --bg: #121417;
+  --fg: #e8ebee;
+  --muted: #a3adb8;
+  --surface: #1c2026;
+  --border: #343b44;
+  --focus: #f2a541;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5; }
+:root[data-motion="reduced"] * { transition: none !important; animation: none !important; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.skip-link { position: absolute; left: -1000px; top: 0; background: var(--surface); padding: 0.5rem 1rem; }
+.skip-link:focus { left: 0.5rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.header { display: flex; gap: 1.5rem; align-items: center; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+.header nav { display: flex; gap: 1rem; flex: 1; }
+.brand { font-weight: 700; text-decoration: none; }
+.toggle { display: inline-flex; gap: 0.4rem; align-items: center; color: var(--muted); }
+.main { max-width: 72rem; margin: 0 auto; padding: 1.25rem; }
+.main:focus { outline: none; }
+.cards { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+.card { border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; background: var(--surface); }
+.card-title { font-size: 1.15rem; font-weight: 600; }
+.card-meta { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.tabs a { padding: 0.5rem 1rem; text-decoration: none; border-bottom: 3px solid transparent; }
+.tabs a[aria-current="page"] { border-bottom-color: var(--c-train); font-weight: 600; }
+.notice { padding: 0.6rem 0.9rem; border-left: 4px solid var(--c-highlight); background: var(--surface); }
+.errors { margin-top: 2rem; }
+.error { white-space: pre-wrap; color: var(--c-valid); }
+.lesson-text { max-width: 44rem; }
+.lesson-text table { border-collapse: collapse; }
+.lesson-text td, .lesson-text th { border: 1px solid var(--border); padding: 0.25rem 0.6rem; }
+.math-display { margin: 1rem 0; overflow-x: auto; }
+.derivation { margin-top: 2rem; max-width: 44rem; }
+.derivation-step { padding: 0.75rem 1rem; margin: 0.5rem 0; border-left: 3px solid var(--c-slice); background: var(--surface); }
+.button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 0.4rem; border: 1px solid var(--border); background: var(--surface); color: var(--fg); cursor: pointer; }
+.button:disabled { opacity: 0.6; cursor: default; }
+.instructor-notes { margin-top: 2rem; padding: 1rem; border: 1px dashed var(--c-highlight); border-radius: 0.5rem; max-width: 44rem; }

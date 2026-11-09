@@ -6,7 +6,7 @@ description = "Native computational teaching workbench for linear models and tre
 publish = false
 
 [workspace]
-members = ["crates/engine", "crates/supervisor", "crates/lessons", "crates/record"]
+members = ["crates/engine", "crates/supervisor", "crates/lessons", "crates/record", "crates/app"]
 
 [features]
 # Self-test, smoke-test and receipt-writing code. Off by default so the

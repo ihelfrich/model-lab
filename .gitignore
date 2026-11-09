@@ -9,3 +9,11 @@ __pycache__/
 .DS_Store
 /.worktrees/
 .superpowers/
+
+# Tauri shell
+crates/app/ui/node_modules/
+crates/app/ui/dist/
+crates/app/binaries/
+crates/app/gen/
+!crates/app/icons/*.png
+!crates/app/app-icon.png
