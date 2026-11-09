@@ -27,6 +27,26 @@ pub fn tree_rng(seed: u64, t: usize) -> StdRng {
     StdRng::seed_from_u64(splitmix64(seed) ^ (t as u64 + 1))
 }
 
+fn document(data: &Data, cfg: &Config, trees: &[Node], train_mse: &[f64], valid_mse: &[f64], stopped: bool) -> Value {
+    json!({
+        "v": STATE_VERSION,
+        "config": cfg,
+        "rows": data.y.len(),
+        "data_sha256": data_fingerprint(data),
+        "trees": trees,
+        "train_mse": train_mse,
+        "valid_mse": valid_mse,
+        "stopped": stopped,
+    })
+}
+
+/// The same document `EnsembleState::to_json` writes, derived from a
+/// finished `Fit`, so a saved experiment can carry its trees and be reopened
+/// by replay (`Run::from_trace`) rather than by refitting.
+pub fn state_document(fit: &Fit) -> Value {
+    document(&fit.data, &fit.cfg, &fit.trees, &fit.train_mse, &fit.valid_mse, fit.trees.len() < fit.cfg.trees)
+}
+
 #[derive(Clone)]
 pub struct EnsembleState {
     data: Data,
@@ -254,16 +274,7 @@ impl EnsembleState {
     /// The resumable document: settings, data fingerprint, the trees and the
     /// per-stage scalars. Predictions, samples and the split are replayed.
     pub fn to_json(&self) -> Value {
-        json!({
-            "v": STATE_VERSION,
-            "config": self.cfg,
-            "rows": self.data.y.len(),
-            "data_sha256": data_fingerprint(&self.data),
-            "trees": self.trees,
-            "train_mse": self.train_mse,
-            "valid_mse": self.valid_mse,
-            "stopped": self.stopped,
-        })
+        document(&self.data, &self.cfg, &self.trees, &self.train_mse, &self.valid_mse, self.stopped)
     }
 
     /// Rebuild a state from `to_json` output and the same data, replaying each

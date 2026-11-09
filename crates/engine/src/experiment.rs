@@ -621,7 +621,76 @@ impl Run {
             "config":c.to_json(),
             "partition":{"train":self.partition.train,"valid":self.partition.valid},
             "trace":self.trace.iter().map(|s|json!({"stage":s.stage,"iteration":s.iteration,"label":s.label,"objective":s.objective,"train_loss":s.train_loss,"valid_loss":s.valid_loss,"stationarity":s.stationarity,"coefficients":self.coefficients(s.stage)})).collect::<Vec<_>>(),
-            "final_predictions":self.predictions(self.last_stage()),"converged":self.converged(),"warning":self.warning()})
+            "final_predictions":self.predictions(self.last_stage()),"converged":self.converged(),"warning":self.warning(),
+            "ensemble": match &self.fitted { FittedModel::Trees(f) => crate::ensemble::state_document(f), FittedModel::Linear(_) => Value::Null }})
+    }
+    /// Open a saved tree-model experiment read-only: the stored trees are
+    /// replayed (predictions only, no split search) and every recorded
+    /// number is checked against the replay. `max_rows` is the caller's
+    /// bound (a supervised job's `max_rows`), not the interactive one.
+    pub fn from_trace(value: &Value, max_rows: usize) -> Result<Self, String> {
+        match value["schema_version"].as_u64() {
+            Some(TRACE_SCHEMA) => {}
+            Some(1) => return Err(SCHEMA_ONE_NOTICE.into()),
+            _ => return Err("Unsupported saved-experiment schema.".into()),
+        }
+        let d = &value["data"];
+        let names =
+            serde_json::from_value::<Vec<String>>(d["names"].clone()).map_err(|e| e.to_string())?;
+        let data = Data {
+            names,
+            target: d["target"].as_str().ok_or("Missing response name")?.into(),
+            x: serde_json::from_value(d["x"].clone()).map_err(|e| e.to_string())?,
+            y: serde_json::from_value(d["y"].clone()).map_err(|e| e.to_string())?,
+        };
+        Self::validate_data(&data, max_rows)?;
+        let mut cfg = RunConfig::from_json(&value["config"])?;
+        if let ModelId::Linear(_) = cfg.model {
+            return Err("Linear experiments are reloaded by refitting.".into());
+        }
+        if value["ensemble"].is_null() {
+            return Err("This saved experiment has no ensemble state; open it with the interactive loader.".into());
+        }
+        let split = Self::prepare(&data, &mut cfg)?;
+        let fit = crate::ensemble::EnsembleState::from_json(&value["ensemble"], data.clone())?.into_fit();
+        let run = Self::from_fitted(
+            value["name"].as_str().unwrap_or("Saved experiment").into(),
+            data,
+            cfg,
+            split,
+            FittedModel::Trees(fit),
+            Arc::new(AtomicBool::new(false)),
+        )?;
+        Self::check_replay(value, &run)?;
+        Ok(run)
+    }
+    fn check_replay(value: &Value, run: &Run) -> Result<(), String> {
+        let predictions = serde_json::from_value::<Vec<f64>>(value["final_predictions"].clone())
+            .map_err(|e| e.to_string())?;
+        let train = serde_json::from_value::<Vec<usize>>(value["partition"]["train"].clone())
+            .map_err(|e| e.to_string())?;
+        let valid = serde_json::from_value::<Vec<usize>>(value["partition"]["valid"].clone())
+            .map_err(|e| e.to_string())?;
+        if predictions.len() != run.data.y.len()
+            || run.partition.train != train
+            || run.partition.valid != valid
+            || value["fingerprint"].as_str() != Some(&run.fingerprint)
+            || predictions
+                .iter()
+                .zip(run.predictions(run.last_stage()))
+                .any(|(a, b)| !a.is_finite() || (a - b).abs() > 1e-8 * (1. + a.abs()))
+        {
+            return Err("This saved experiment does not reproduce under the current engine. No replay was accepted.".into());
+        }
+        let actual = run.to_json();
+        for key in ["trace", "converged", "warning"] {
+            if !replay_matches(&value[key], &actual[key]) {
+                return Err(format!(
+                    "Saved {key} does not reproduce under the current engine."
+                ));
+            }
+        }
+        Ok(())
     }
     pub fn from_json(value: &Value, cancel: Arc<AtomicBool>) -> Result<Self, String> {
         match value["schema_version"].as_u64() {
@@ -649,31 +718,7 @@ impl Run {
             cfg,
             cancel,
         )?;
-        let predictions = serde_json::from_value::<Vec<f64>>(value["final_predictions"].clone())
-            .map_err(|e| e.to_string())?;
-        let train = serde_json::from_value::<Vec<usize>>(value["partition"]["train"].clone())
-            .map_err(|e| e.to_string())?;
-        let valid = serde_json::from_value::<Vec<usize>>(value["partition"]["valid"].clone())
-            .map_err(|e| e.to_string())?;
-        if predictions.len() != run.data.y.len()
-            || run.partition.train != train
-            || run.partition.valid != valid
-            || value["fingerprint"].as_str() != Some(&run.fingerprint)
-            || predictions
-                .iter()
-                .zip(run.predictions(run.last_stage()))
-                .any(|(a, b)| !a.is_finite() || (a - b).abs() > 1e-8 * (1. + a.abs()))
-        {
-            return Err("This saved experiment does not reproduce under the current engine. No replay was accepted.".into());
-        }
-        let actual = run.to_json();
-        for key in ["trace", "converged", "warning"] {
-            if !replay_matches(&value[key], &actual[key]) {
-                return Err(format!(
-                    "Saved {key} does not reproduce under the current engine."
-                ));
-            }
-        }
+        Self::check_replay(value, &run)?;
         Ok(run)
     }
 }
