@@ -82,4 +82,50 @@ its expected observation.
    reads "interrupted", Resume completes, Open result shows a 121-stage
    run with the loss curve and the best stage.
 
-When these have been walked, record the date and any deviation here.
+## Walked on 2026-11-09 (background window control, after the merge)
+
+Dr. Helfrich granted application access to the running bundle; the
+walkthrough ran with background control, which delivers link clicks and
+scrolling to the webview but not button presses, slider moves or typing
+(WebKit ignores them in a window that is not key). Full-screen control was
+requested twice and timed out without an answer. So the items split again.
+
+Seen and passing:
+
+- Item 1 in full. Item 2: every formula renders through KaTeX; the notice
+  lists the numbers the run will fill in.
+- Item 3 partly: the by-hand experiment runs on its own and the rounds
+  plot renders through the Vega interpreter (the review's C1 fix holds).
+- Item 5 partly: lessons 1, 3 and 4 open and run in a few seconds; lesson
+  3 shows the loss curve and the scatter with its slice line, and its
+  sliders show the fitted settings (depth 2, rate 0.1, fraction 1, 150
+  trees); lesson 4 shows the loss curve, the scatter, the OOB curve with
+  coverage, permutation importance with ± ranges and the PDP/ICE/slice.
+- Item 7 partly: quit from the menu left no `model-lab` process; the
+  reopened app showed the Check tab asking for a run first, as a fresh
+  process should.
+- The Jobs page renders with its lesson selector, CSV chooser and Start.
+- Question options come out in a different order on a new run.
+
+Two defects found and fixed with failing-first tests, then rebuilt and
+re-seen in the window:
+
+- Every non-ASCII character outside math and code was mojibake (`−4`
+  showed as `â` and boxes): the math extractor copied bytes as chars.
+  Fixed in `markdown.rs`; test `non_ascii_text_outside_math_survives`.
+- Lesson 2's first prediction prompt showed `[missing: selected.before]`:
+  the Check panel rendered prompts in the panel-wide context while the
+  commit used the prediction's own row and stage. Fixed in `record.rs`;
+  test `prediction_prompt_is_rendered_for_its_own_row_and_stage`.
+
+Cosmetic, not fixed: the loss curve's "best stage N" label is clipped at
+the plot's right edge when the best stage is near the end; the importance
+plot's x-axis tick labels collide on a wide range; a `[missing: …]`
+placeholder inside display math is typeset as math (underscores become
+subscripts) until the experiment runs.
+
+Still needs a person at the window (button presses): item 3's slider,
+round stepping, observation arithmetic and data table; item 4
+(predictions, locks, eight questions); item 5's hollow points at a
+fraction below 1; item 6; item 7's record and "earlier setting" display;
+item 8; item 9.
