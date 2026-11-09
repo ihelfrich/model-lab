@@ -14,6 +14,20 @@ pub const C_OOB: &str = "#5B8E7D";
 pub const C_SLICE: &str = "#7B6D8D";
 pub const C_HIGHLIGHT: &str = "#F2A541";
 
+/// Rows drawn in the scatter at most; a larger run is thinned evenly (the
+/// selected row is always kept) and the description says so.
+pub const SCATTER_MAX_ROWS: usize = 5000;
+
+fn mask(n: usize, rows: &[usize]) -> Vec<bool> {
+    let mut m = vec![false; n];
+    for &i in rows {
+        if i < n {
+            m[i] = true;
+        }
+    }
+    m
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Table {
     pub columns: Vec<String>,
@@ -119,17 +133,24 @@ pub fn loss_curve(run: &Run) -> Plot {
 pub fn scatter_with_slice(run: &Run, feature: usize, stage: usize, selected: Option<usize>) -> Plot {
     let name = run.data.names[feature].clone();
     let pred = run.predictions(stage);
-    let sample: Option<&Vec<usize>> = match &run.fitted {
-        model_lab_engine::experiment::FittedModel::Trees(f) if stage >= 1 => f.samples.get(stage - 1),
+    let n = run.data.y.len();
+    let training_mask = mask(n, &run.partition.train);
+    let sample_mask: Option<Vec<bool>> = match &run.fitted {
+        model_lab_engine::experiment::FittedModel::Trees(f) if stage >= 1 => f.samples.get(stage - 1).map(|s| mask(n, s)),
         _ => None,
     };
+    let stride = n.div_ceil(SCATTER_MAX_ROWS).max(1);
+    let capped = stride > 1;
     let columns = ["row", "x", "y", "prediction", "split", "selected", "in_sample"];
     let mut rows = vec![];
     for (i, x) in run.data.x.iter().enumerate() {
-        let training = run.partition.train.contains(&i);
+        if i % stride != 0 && selected != Some(i) {
+            continue;
+        }
+        let training = training_mask[i];
         let split = if training { "training" } else { "validation" };
-        let in_sample = match sample {
-            Some(s) => json!(s.contains(&i)),
+        let in_sample = match &sample_mask {
+            Some(s) => json!(s[i]),
             None => json!(training),
         };
         rows.push(vec![
@@ -172,7 +193,8 @@ pub fn scatter_with_slice(run: &Run, feature: usize, stage: usize, selected: Opt
         id: "scatter".into(),
         title: format!("{} against {name}", run.data.target),
         description: format!(
-            "Each point is an observation; the line is the model at stage {stage} with the other predictors held at their training medians (a slice, not a partial dependence). Hollow points were not in the sample this stage's tree was fitted to."
+            "Each point is an observation; the line is the model at stage {stage} with the other predictors held at their training medians (a slice, not a partial dependence). Hollow points were not in the sample this stage's tree was fitted to.{}",
+            if capped { format!(" Showing every {stride}th of {n} rows (at most {SCATTER_MAX_ROWS}); the selected row is always drawn.") } else { String::new() }
         ),
         spec,
         table: table(&columns, rows),
@@ -408,6 +430,29 @@ mod tests {
         let f = forest();
         let p = oob_curve(fit(&f));
         assert_eq!(p.table.columns, vec!["stage", "oob_mse", "oob_coverage", "rows_covered", "rows_train"]);
+    }
+
+    #[test]
+    fn scatter_caps_large_runs_and_says_so() {
+        let mut cfg = RunConfig::default();
+        cfg.model = ModelId::parse("boosting").unwrap();
+        cfg.tree.trees = 3;
+        let mut data = scenario(0, 1, 0.5);
+        // 12,000 rows by tiling the scenario.
+        while data.y.len() < 12_000 {
+            let n = data.y.len();
+            for i in 0..n.min(12_000 - data.y.len()) {
+                data.x.push(data.x[i].iter().map(|v| v + 0.001).collect());
+                data.y.push(data.y[i]);
+            }
+        }
+        let big = Run::fit_with_limit("big".into(), data, cfg, Arc::new(AtomicBool::new(false)), 50_000).unwrap();
+        let p = scatter_with_slice(&big, 0, 3, Some(11_999));
+        assert!(p.table.rows.len() <= SCATTER_MAX_ROWS, "{}", p.table.rows.len());
+        assert_eq!(p.table.rows.len(), dataset_rows(&p.spec));
+        assert!(p.description.contains(&format!("{SCATTER_MAX_ROWS}")), "{}", p.description);
+        // The selected row is always drawn, even past the cap.
+        assert_eq!(p.spec["datasets"]["selected"].as_array().unwrap().len(), 1);
     }
 
     #[test]

@@ -258,6 +258,9 @@ fn find_question<'a>(lesson: &'a model_lab_lessons::lesson::Lesson, id: &str) ->
 pub fn commit_prediction(state: &AppState, lesson_id: &str, run_id: &str, prompt_id: &str, predicted: &str) -> Result<Reveal, String> {
     let lesson = state.lesson(lesson_id)?;
     let p = find_prediction(&lesson, prompt_id)?;
+    if check_state(state, run_id).predictions.contains_key(prompt_id) {
+        return Err("This prediction has already been committed for this run.".into());
+    }
     let (ctx, _, hash) = run_context(state, run_id, p.stage, p.row)?;
     let actual = ctx.get(&p.reveals).cloned().ok_or_else(|| format!("The experiment did not produce {}", p.reveals))?;
     let correct = score(&p.kind, predicted, &actual);
@@ -278,6 +281,9 @@ pub fn answer_question(state: &AppState, lesson_id: &str, run_id: &str, question
     let lesson = state.lesson(lesson_id)?;
     let q = find_question(&lesson, question_id)?;
     let check = check_state(state, run_id);
+    if check.answers.contains_key(question_id) {
+        return Err("This question has already been answered for this run.".into());
+    }
     if let Some(p) = &q.requires_prediction {
         if !check.predictions.contains_key(p) {
             let prompt = find_prediction(&lesson, p).map(|p| p.prompt.clone()).unwrap_or_default();
@@ -294,7 +300,9 @@ pub fn answer_question(state: &AppState, lesson_id: &str, run_id: &str, question
     let mut correct_set = q.correct.clone();
     correct_set.sort_unstable();
     let correct = chosen == correct_set;
-    let after_prediction = q.requires_prediction.is_none() || !check.predictions.is_empty();
+    // The spec's mastery rule: an answer counts only when a prediction was
+    // committed earlier in the same attempt.
+    let after_prediction = !check.predictions.is_empty();
     let explanation_html = to_html(&render(&q.explanation, &ctx).text);
     let saved = attempt_for(state, run_id, lesson_id, &hash)
         .and_then(|a| {
@@ -423,5 +431,31 @@ mod tests {
         let a = answer_question(&state, "fixture-lesson", &run, "q1", vec![1]).unwrap();
         assert!(a.correct);
         assert!(!a.saved);
+    }
+
+    #[test]
+    fn answers_before_any_prediction_do_not_count_toward_mastery() {
+        let state = AppState::new(Dirs::under(fixtures(), &tmp("mastery-prediction")));
+        let run = byhand_run(&state, serde_json::json!({}));
+        // q1 requires no prediction, but none has been committed in this attempt.
+        answer_question(&state, "fixture-lesson", &run, "q1", vec![1]).unwrap();
+        let history = state.record.lock().unwrap().as_ref().unwrap().lesson_history("fixture-lesson").unwrap();
+        assert!(!history.attempts[0].answers[0].after_prediction);
+        commit_prediction(&state, "fixture-lesson", &run, "p1", "down").unwrap();
+        let second = byhand_run(&state, serde_json::json!({}));
+        commit_prediction(&state, "fixture-lesson", &second, "p1", "down").unwrap();
+        answer_question(&state, "fixture-lesson", &second, "q1", vec![1]).unwrap();
+        let history = state.record.lock().unwrap().as_ref().unwrap().lesson_history("fixture-lesson").unwrap();
+        assert!(history.attempts[0].answers[0].after_prediction);
+    }
+
+    #[test]
+    fn a_question_is_answered_once_per_run() {
+        let state = AppState::new(Dirs::under(fixtures(), &tmp("once")));
+        let run = byhand_run(&state, serde_json::json!({}));
+        answer_question(&state, "fixture-lesson", &run, "q1", vec![1]).unwrap();
+        assert!(answer_question(&state, "fixture-lesson", &run, "q1", vec![0]).is_err());
+        commit_prediction(&state, "fixture-lesson", &run, "p1", "down").unwrap();
+        assert!(commit_prediction(&state, "fixture-lesson", &run, "p1", "up").is_err());
     }
 }

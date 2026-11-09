@@ -1,4 +1,5 @@
 import vegaEmbed, { type Result } from "vega-embed";
+import { vegaOptions } from "./vega";
 import { el } from "./dom";
 import type { Plot } from "./api";
 
@@ -61,10 +62,7 @@ export async function renderPlot(
   host.append(figure);
   let result: Result | null = null;
   try {
-    result = await vegaEmbed(chart, plot.spec as Record<string, unknown>, {
-      actions: { export: true, source: false, compiled: false, editor: false },
-      renderer: "svg",
-    });
+    result = await vegaEmbed(chart, plot.spec as Record<string, unknown>, vegaOptions);
     if (onSelectRow) {
       try {
         result.view.addSignalListener("select_row", (_name, value) => {

@@ -4,7 +4,7 @@ use crate::state::AppState;
 use model_lab_lessons::packet::{self, PacketInput};
 use serde::Serialize;
 use serde_json::json;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
 #[derive(Clone, Debug, Serialize)]
@@ -61,9 +61,17 @@ pub fn export_packet(state: &AppState, lesson_id: &str, run_id: &str, student_on
 
 /// Save one rendered figure into a packet directory the shell just wrote.
 pub fn save_figure(state: &AppState, packet_dir: &str, id: &str, svg: &str) -> Result<PathBuf, String> {
-    let dir = Path::new(packet_dir);
-    if !dir.starts_with(&state.dirs.packets) || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
-        return Err("Figures are saved only inside a packet directory.".into());
+    let refuse = || Err("Figures are saved only inside a packet directory.".to_string());
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return refuse();
+    }
+    // Compare real paths: `starts_with` is component-wise and would accept
+    // `<packets>/../elsewhere`.
+    let (Ok(dir), Ok(root)) = (std::fs::canonicalize(packet_dir), std::fs::canonicalize(&state.dirs.packets)) else {
+        return refuse();
+    };
+    if dir == root || !dir.starts_with(&root) {
+        return refuse();
     }
     let path = dir.join("figures").join(format!("{id}.svg"));
     std::fs::write(&path, svg).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -82,5 +90,34 @@ pub mod ipc {
     #[tauri::command]
     pub fn save_figure(state: State<'_, Arc<AppState>>, packet_dir: String, id: String, svg: String) -> Result<PathBuf, String> {
         super::save_figure(&state, &packet_dir, &id, &svg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::Dirs;
+    use std::path::PathBuf;
+
+    fn tmp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("model-lab-figure-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        d
+    }
+
+    #[test]
+    fn save_figure_refuses_paths_that_escape_the_packets_directory() {
+        let data = tmp("escape");
+        let state = AppState::new(Dirs::under(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../lessons/tests/fixtures"), &data));
+        let outside = data.join("elsewhere");
+        std::fs::create_dir_all(outside.join("figures")).unwrap();
+        let sneaky = format!("{}/../elsewhere", state.dirs.packets.display());
+        std::fs::create_dir_all(&state.dirs.packets).unwrap();
+        assert!(save_figure(&state, &sneaky, "x", "<svg/>").is_err());
+        assert!(!outside.join("figures/x.svg").exists());
+        let inside = state.dirs.packets.join("p-1");
+        std::fs::create_dir_all(inside.join("figures")).unwrap();
+        assert!(save_figure(&state, inside.to_str().unwrap(), "x", "<svg/>").is_ok());
+        assert!(save_figure(&state, inside.to_str().unwrap(), "../x", "<svg/>").is_err());
     }
 }

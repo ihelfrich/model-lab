@@ -199,3 +199,64 @@ fn an_unwritable_checkpoint_does_not_fail_a_completed_fit() {
     assert!(!out.events.iter().any(|e| matches!(e, Kind::Checkpoint { .. })));
     assert!(out.output.iter().any(|l| l.contains("checkpoint") && l.contains("no-such-dir")), "{:?}", out.output);
 }
+
+/// A `kill -9` of the shell (or a crash) must not leave the engine job
+/// running: it notices its parent is gone and exits after a checkpoint.
+#[cfg(unix)]
+#[test]
+fn orphaned_engine_job_exits_when_its_parent_dies() {
+    use std::time::{Duration, Instant};
+    let dir = std::env::temp_dir().join(format!("model-lab-orphan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let csv = dir.join("data.csv");
+    let mut text = String::from("a,b,y\n");
+    let mut s: u64 = 5;
+    for _ in 0..30000 {
+        s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let a = (s >> 33) as f64 / 2f64.powi(31);
+        let b = ((s >> 11) & 0xffff) as f64 / 65536.0;
+        text.push_str(&format!("{a:.6},{b:.6},{:.6}\n", a * b + (a * 9.0).sin()));
+    }
+    std::fs::write(&csv, text).unwrap();
+    let spec = serde_json::json!({
+        "v": 3, "job": "fit", "label": "orphan", "data_csv": csv, "target": "y", "features": ["a", "b"],
+        "config": {"model": "boosting", "seed": 1, "validation": 0.25, "alpha": 1.0, "mix": 0.5, "standardize": true,
+                    "tolerance": 1e-8, "max_iterations": 300, "trees": 300, "depth": 8, "min_leaf": 3, "rate": 0.05,
+                    "fraction": 1.0, "mtry": 1, "patience": 0, "min_relative_improvement": 0.0001},
+        "max_rows": 50000, "checkpoint_every_trees": 5
+    });
+    let spec_path = dir.join("spec.json");
+    std::fs::write(&spec_path, serde_json::to_vec(&spec).unwrap()).unwrap();
+    // A throwaway parent: a shell that execs nothing else, so its pid is what the job sees as ppid.
+    let script = format!(
+        "{} {} & echo $! > {}; wait",
+        env!("CARGO_BIN_EXE_model-lab-engine-job"), spec_path.display(), dir.join("job.pid").display()
+    );
+    let mut parent = std::process::Command::new("sh")
+        .arg("-c").arg(script)
+        .env("MODEL_LAB_NONCE", "0123456789abcdef0123456789abcdef")
+        .env("MODEL_LAB_CHECKPOINT", dir.join("checkpoint.json"))
+        .stdout(std::process::Stdio::null())
+        .spawn().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let pid_file = dir.join("job.pid");
+    while !pid_file.exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let job_pid: i32 = std::fs::read_to_string(&pid_file).unwrap().trim().parse().unwrap();
+    std::thread::sleep(Duration::from_millis(800));
+    unsafe { libc::kill(parent.id() as i32, libc::SIGKILL) };
+    let _ = parent.wait();
+    // Still alive right after the kill: the parent's death is what must end it.
+    assert_eq!(unsafe { libc::kill(job_pid, 0) }, 0, "engine job was not running when its parent died");
+    let gone_by = Instant::now() + Duration::from_secs(30);
+    loop {
+        let alive = unsafe { libc::kill(job_pid, 0) } == 0;
+        if !alive {
+            break;
+        }
+        assert!(Instant::now() < gone_by, "engine job {job_pid} outlived its parent");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}

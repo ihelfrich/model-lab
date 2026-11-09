@@ -87,7 +87,9 @@ pub fn to_html(markdown: &str) -> String {
     builder.add_tag_attributes("table", &["class"]);
     builder.add_tag_attributes("td", &["align"]);
     builder.add_tag_attributes("th", &["align"]);
-    builder.link_rel(Some("noopener noreferrer"));
+    // Lessons do not get hyperlinks: a link would navigate the webview
+    // away from the application. The link text stays.
+    builder.rm_tags(&["a"]);
     let mut clean = builder.clean(&raw).to_string();
     for (k, m) in maths.iter().enumerate() {
         let tex = escape(&m.tex);
@@ -135,6 +137,14 @@ mod tests {
         let h = to_html("Pay `$5` now\n\n```\n$x$\n```\n");
         assert!(!h.contains("data-tex"), "{h}");
         assert!(h.contains("$5"), "{h}");
+    }
+
+    #[test]
+    fn links_do_not_leave_the_webview() {
+        let h = to_html("See [the paper](https://example.org/x) and <a href=\"https://example.org\">this</a>.");
+        assert!(!h.contains("<a "), "{h}");
+        assert!(!h.contains("href"), "{h}");
+        assert!(h.contains("the paper") && h.contains("this"), "{h}");
     }
 
     #[test]

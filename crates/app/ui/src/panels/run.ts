@@ -3,16 +3,16 @@ import { announce, el } from "../dom";
 import { renderPlot, type PlotHandle } from "../plots";
 import { SelectionStore } from "../selection";
 import { runs } from "../runs";
+import { initialControlValues } from "../controls";
 
 const fmt = (v: number | null | undefined, digits = 4) => (v === null || v === undefined ? "–" : v.toFixed(digits));
 
 function controlsFor(controls: Learner[], current: Record<string, unknown>, onRun: (overrides: Record<string, number>) => void): HTMLElement {
   const form = el("form", { class: "controls", "aria-label": "Experiment settings" });
-  const values: Record<string, number> = {};
+  const values = initialControlValues(controls, current);
   for (const c of controls) {
     const id = `ctl-${c.field}`;
-    const start = typeof current[c.field] === "number" ? (current[c.field] as number) : c.min;
-    values[c.field] = start;
+    const start = values[c.field] ?? c.min;
     const label = el("label", { for: id }, `${c.field}: `);
     const out = el("output", {}, String(start));
     const input = el("input", { id, type: "range", min: String(c.min), max: String(c.max), step: String(c.step), value: String(start) }) as HTMLInputElement;
@@ -84,21 +84,32 @@ export async function renderRun(lessonId: string, host: HTMLElement): Promise<vo
   let handles: PlotHandle[] = [];
 
   let panel: RunPanel | null = null;
-  const panelControls = (): Learner[] | null => panel?.controls ?? null;
   let current = runs.get(lessonId);
-  let lastConfig: Record<string, unknown> = {};
+  let request = 0;
 
   async function show(): Promise<void> {
     if (!current) return;
+    // Only the latest request may touch the DOM: a slider move followed by a
+    // click must not interleave two renders.
+    const token = ++request;
     const s = store.get();
-    panel = await api.runPanel(current.runId, s.stage, s.feature, s.selected);
-    lastConfig = panel.config;
+    const next = await api.runPanel(current.runId, s.stage, s.feature, s.selected);
+    if (token !== request) return;
+    panel = next;
+    // The sliders show the settings this run was fitted with.
+    controlsHost.replaceChildren(controlsFor(panel.controls, panel.config, (o) => void start(o)));
     replay.replaceChildren(replayControls(panel));
     plotsHost.replaceChildren();
-    handles = [];
+    const fresh: PlotHandle[] = [];
     for (const p of panel.plots) {
-      handles.push(await renderPlot(p, plotsHost, (row) => store.set({ selected: row })));
+      const handle = await renderPlot(p, plotsHost, (row) => store.set({ selected: row }));
+      if (token !== request) {
+        handle.element.remove();
+        return;
+      }
+      fresh.push(handle);
     }
+    handles = fresh;
     arithmeticHost.replaceChildren(arithmetic(panel));
     exportHost.replaceChildren(exportControls(panel));
     status.textContent = panel.kind === "by_hand"
@@ -131,7 +142,10 @@ export async function renderRun(lessonId: string, host: HTMLElement): Promise<vo
     }
     const row = el("input", { type: "number", min: "1", "aria-label": "Observation number" }) as HTMLInputElement;
     row.value = store.get().selected === null ? "" : String((store.get().selected ?? 0) + 1);
-    row.addEventListener("change", () => store.set({ selected: row.value ? Number(row.value) - 1 : null }));
+    row.addEventListener("change", () => {
+      const n = Number(row.value);
+      store.set({ selected: row.value && Number.isFinite(n) && n >= 1 ? Math.floor(n) - 1 : null });
+    });
     bar.append(el("label", {}, "observation: ", row));
     return bar;
   }
@@ -207,9 +221,11 @@ export async function renderRun(lessonId: string, host: HTMLElement): Promise<vo
       runs.clear(lessonId);
     }
   }
-  const lessonControls = panelControls() ?? (await api.lessonControls(lessonId));
-  controlsHost.append(controlsFor(lessonControls, lastConfig, (o) => void start(o)));
   if (!current) {
+    // Before the first run: the lesson's own controls; `show()` replaces
+    // them with the fitted settings once the run exists.
+    const lessonControls = await api.lessonControls(lessonId);
+    controlsHost.replaceChildren(controlsFor(lessonControls, {}, (o) => void start(o)));
     status.textContent = "Run the experiment to see its real recorded states.";
     void start({});
   }

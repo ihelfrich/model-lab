@@ -26,6 +26,29 @@ extern "C" fn on_term(_: libc::c_int) {
     TERMINATE.store(true, Ordering::Relaxed);
 }
 
+#[cfg(unix)]
+static PARENT: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
+/// Whether the process that started us has gone away (Unix: our parent pid
+/// changed, i.e. we were reparented to init/launchd). Windows relies on the
+/// supervisor's Job Object, which kills the tree when its handle closes.
+fn parent_gone() -> bool {
+    #[cfg(unix)]
+    {
+        let now = unsafe { libc::getppid() };
+        let first = PARENT.load(Ordering::Relaxed);
+        if first == 0 {
+            PARENT.store(now, Ordering::Relaxed);
+            return false;
+        }
+        now != first
+    }
+    #[cfg(not(unix))]
+    {
+        false
+    }
+}
+
 fn install_signal_handler() {
     #[cfg(unix)]
     unsafe {
@@ -66,6 +89,7 @@ fn main() {
         std::process::exit(2);
     };
     install_signal_handler();
+    let _ = parent_gone();
     let mut emitter = Emitter { nonce, out: std::io::stdout() };
     match run(Path::new(&spec_path), &checkpoint_path, &mut emitter) {
         Ok(result) => {
@@ -153,6 +177,13 @@ fn run(spec_path: &Path, checkpoint_path: &Path, emitter: &mut Emitter) -> Resul
             if since_checkpoint >= spec.checkpoint_every_trees {
                 write(&state, emitter);
                 since_checkpoint = 0;
+            }
+            if parent_gone() {
+                // The supervisor died without killing us (a crash, kill -9):
+                // leave a checkpoint and go, never a process behind.
+                write(&state, emitter);
+                emitter.say("the supervising process is gone; stopping after a checkpoint");
+                return Err(Outcome::Terminated);
             }
             if TERMINATE.load(Ordering::Relaxed) {
                 if since_checkpoint > 0 {

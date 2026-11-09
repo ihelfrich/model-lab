@@ -330,6 +330,17 @@ impl Jobs {
     }
 }
 
+impl Jobs {
+    /// The application is quitting: kill every job's process tree now
+    /// (Tauri exits without running destructors) and leave the manifests
+    /// `running` on disk so the next launch offers Resume.
+    pub fn shutdown(&mut self) {
+        self.alive.store(false, Ordering::Relaxed);
+        let supervisor = std::mem::take(&mut self.supervisor);
+        supervisor.shutdown();
+    }
+}
+
 impl Drop for Jobs {
     fn drop(&mut self) {
         // A quit is not a cancel: manifests stay `running` on disk so the

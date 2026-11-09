@@ -297,3 +297,35 @@ fn walkthrough_fifty_thousand_row_job_quits_and_resumes() {
     assert_eq!(run.trace.len(), 121);
     eprintln!("walkthrough: fresh {fresh_secs}s, resume from 50 {}s", resumed_at.elapsed().as_secs());
 }
+
+#[test]
+fn shutdown_kills_the_tree_and_leaves_the_manifest_running() {
+    ensure_engine_job();
+    let root = tmp("shutdown");
+    let csv = root.join("data.csv");
+    write_csv(&csv, 12_000);
+    let jobs_dir = root.join("jobs");
+    let (s1, _e, rx) = sink();
+    let mut jobs = Jobs::load(&jobs_dir, s1);
+    let id = jobs.start("boosting-on-data", "job", &experiment(), &csv, &serde_json::json!({})).unwrap();
+    // Wait for the process to be up and working.
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut pid = None;
+    while Instant::now() < deadline && pid.is_none() {
+        if let Ok((_, JobEvent::Started { pid: p, .. })) = rx.recv_timeout(Duration::from_millis(200)) {
+            pid = Some(p);
+        }
+    }
+    let pid = pid.expect("job started");
+    jobs.shutdown();
+    // The engine job is gone (not a zombie), and the manifest on disk still says running.
+    let alive = std::process::Command::new("ps").args(["-o", "stat=", "-p", &pid.to_string()]).output().unwrap();
+    let stat = String::from_utf8_lossy(&alive.stdout).trim().to_string();
+    assert!(stat.is_empty() || stat.starts_with('Z'), "engine job {pid} still alive: {stat:?}");
+    let manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(jobs.job_dir(&id).join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest["status"], "running");
+    drop(jobs);
+    let (sink2, _e2, _rx2) = sink();
+    let again = Jobs::load(&jobs_dir, sink2);
+    assert_eq!(again.manifest(&id).unwrap().status, JobStatus::Interrupted);
+}

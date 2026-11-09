@@ -27,6 +27,25 @@ below is inferred from the diff; every "verified" line names its evidence.
 | Front end types and unit tests | `npx tsc --noEmit` clean; `vitest` 3 tests (KaTeX rendering keeps the TeX source; selection store) |
 | CI on both shipping platforms | `.github/workflows/shell.yml` on the draft pull request; see the ledger line below for the run that passed |
 
+## Found by the fresh review and fixed before integration
+
+The whole-branch review (a fresh reviewer, 2026-11-09) found two defects the
+tests could not see and the declined window check would have: Vega's
+expression compiler is blocked by the webview's Content Security Policy (so
+no plot would have rendered), fixed by running Vega through its expression
+interpreter with a vitest that forbids `Function` and renders a spec; and
+Tauri's `run` exits the process without destructors, so a quit on macOS left
+the supervised job running, fixed by killing the job trees on
+`RunEvent::Exit` (tested: `shutdown_kills_the_tree_and_leaves_the_manifest_running`)
+and by the engine job exiting after a checkpoint when its parent dies
+(tested: `orphaned_engine_job_exits_when_its_parent_dies`). Also fixed: the
+mastery rule now requires a committed prediction in the attempt (spec over
+plan), repeated answers are refused, `save_figure` compares real paths, the
+scatter uses O(n) masks and is thinned above 5,000 rows with the cap stated,
+lesson hyperlinks are removed (they would navigate the webview away), the
+Run panel's sliders show the fitted settings, and concurrent panel renders
+no longer interleave.
+
 ## Not yet verified (needs a person at the window)
 
 These are the interactive items of the plan's Task 18, in order. Each has

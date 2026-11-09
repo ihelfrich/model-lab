@@ -63,6 +63,18 @@ fn main() {
             packet::export_packet,
             packet::save_figure,
         ])
-        .run(tauri::generate_context!())
-        .expect("Model Lab could not start its window");
+        .build(tauri::generate_context!())
+        .expect("Model Lab could not start its window")
+        .run(|app, event| {
+            // Tauri exits the process without running destructors: kill
+            // the supervised job trees here, leaving their manifests
+            // `running` so the next launch offers Resume.
+            if let tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit = event {
+                if let Some(state) = app.try_state::<Arc<AppState>>() {
+                    if let Ok(mut jobs) = state.jobs.lock() {
+                        jobs.shutdown();
+                    }
+                }
+            }
+        });
 }
