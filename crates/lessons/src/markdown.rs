@@ -32,10 +32,13 @@ fn extract_math(src: &str) -> (String, Vec<Math>) {
             continue;
         }
         let c = bytes[i];
+        // Copy whole characters: `src` is UTF-8 and a byte pushed as a
+        // `char` would turn every multi-byte character into mojibake.
+        let ch = src[i..].chars().next().expect("in bounds");
         if in_fence {
-            out.push(c as char);
+            out.push(ch);
             at_line_start = c == b'\n';
-            i += 1;
+            i += ch.len_utf8();
             continue;
         }
         if c == b'`' {
@@ -65,9 +68,9 @@ fn extract_math(src: &str) -> (String, Vec<Math>) {
                 }
             }
         }
-        out.push(c as char);
+        out.push(ch);
         at_line_start = c == b'\n';
-        i += 1;
+        i += ch.len_utf8();
     }
     (out, maths)
 }
@@ -151,5 +154,13 @@ mod tests {
     fn tables_render() {
         let h = to_html("| a | b |\n|---|---|\n| 1 | 2 |\n");
         assert!(h.contains("<table>"), "{h}");
+    }
+
+    #[test]
+    fn non_ascii_text_outside_math_survives() {
+        let h = to_html("| residual | −4 | −2 |\n|---|---|---|\n| a | b | c |\n\nRange 2–4, “quoted”, ±1.");
+        assert!(h.contains("−4") && h.contains("−2"), "{h}");
+        assert!(h.contains("2–4") && h.contains("“quoted”") && h.contains("±1"), "{h}");
+        assert!(!h.contains('â'), "{h}");
     }
 }
