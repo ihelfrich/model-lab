@@ -358,4 +358,24 @@ mod tests {
         let delta = ctx.get("metric.valid_mse_at_last_minus_best").and_then(|v| v.as_f64()).unwrap();
         assert!(delta >= 0.0, "{delta}");
     }
+
+    #[test]
+    fn mtry_comparison_is_a_real_second_fit() {
+        let mut exp = boosting_experiment();
+        exp.config.model = ModelId::parse("forest").unwrap();
+        exp.config.tree.trees = 20;
+        exp.config.tree.mtry = 1;
+        let (view, _) = build_view("l", &exp, &serde_json::json!({}), no_cancel(), 5000).unwrap();
+        match &view {
+            RunView::Fitted { run, mtry_full: Some(full), .. } => {
+                assert_eq!(full.cfg.mtry, run.data.names.len());
+                assert_ne!(full.predictions(20), run.predictions(20));
+            }
+            _ => panic!("no comparison fit"),
+        }
+        let ctx = context(&view, 20, None);
+        assert!(ctx.get("oob.mse_delta_mtry_full").and_then(|v| v.as_f64()).is_some(), "{}", ctx.0);
+        let (boost, _) = build_view("l", &boosting_experiment(), &serde_json::json!({}), no_cancel(), 5000).unwrap();
+        assert!(matches!(boost, RunView::Fitted { mtry_full: None, .. }));
+    }
 }

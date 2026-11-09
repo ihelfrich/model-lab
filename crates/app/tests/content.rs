@@ -6,7 +6,7 @@ use model_lab_lessons::template::render;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
-const LESSONS: &[&str] = &["one-tree", "boosting-by-hand", "boosting-on-data"];
+const LESSONS: &[&str] = &["one-tree", "boosting-by-hand", "boosting-on-data", "random-forests"];
 const PLANNED: &[&str] = &["one-tree", "boosting-by-hand", "boosting-on-data", "random-forests"];
 
 fn lessons_dir() -> PathBuf {
@@ -100,6 +100,17 @@ fn boosting_on_data_renders_its_denominators() {
     for n in ["2,250", "750"] {
         assert!(text.contains(n), "{n} not in the rendered lesson");
     }
+}
+
+#[test]
+fn random_forests_shows_oob_with_its_rows() {
+    let (text, _) = rendered_text(&lesson("random-forests"));
+    let sentence = text
+        .split(|c| c == '.' || c == '\n')
+        .find(|s| s.contains("coverage") && s.contains("rows") && s.chars().any(|c| c.is_ascii_digit()))
+        .unwrap_or_else(|| panic!("no sentence names the coverage with its rows: {text}"));
+    assert!(!sentence.is_empty());
+    assert!(text.contains('±'), "importance is shown without its spread");
 }
 
 #[test]

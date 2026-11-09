@@ -23,6 +23,10 @@ pub enum RunView {
         run: Run,
         /// Permutation importance, PDP and ICE at the last stage (forests).
         analysis: Option<Analysis>,
+        /// A forest fitted once more with every predictor offered at every
+        /// split (`mtry = p`), same seed: a real second fit for the lesson's
+        /// comparison, `None` unless the run is a forest with `mtry < p`.
+        mtry_full: Option<Box<Fit>>,
     },
     ByHand {
         data: Data,
@@ -181,7 +185,8 @@ pub fn build_view(
             let analysis = fit_of(&run)
                 .filter(|f| f.cfg.method == model_lab_engine::model::Method::Forest)
                 .map(|f| analyze(f, 0, f.trees.len()));
-            Ok((RunView::Fitted { run, analysis }, hash))
+            let mtry_full = mtry_comparison(&run)?;
+            Ok((RunView::Fitted { run, analysis, mtry_full }, hash))
         }
     }
 }
@@ -191,7 +196,23 @@ pub fn view_of_run(run: Run) -> RunView {
     let analysis = fit_of(&run)
         .filter(|f| f.cfg.method == model_lab_engine::model::Method::Forest)
         .map(|f| analyze(f, 0, f.trees.len()));
-    RunView::Fitted { run, analysis }
+    // A supervised result is opened read-only; no second fit is run for it.
+    RunView::Fitted { run, analysis, mtry_full: None }
+}
+
+/// For a forest that hides predictors at each split, fit it again with all
+/// of them offered (`mtry = p`), same seed and data, so the lesson can show
+/// a measured rather than asserted difference.
+fn mtry_comparison(run: &Run) -> Result<Option<Box<Fit>>, String> {
+    let Some(f) = fit_of(run) else { return Ok(None) };
+    let p = run.data.names.len();
+    if f.cfg.method != model_lab_engine::model::Method::Forest || f.cfg.mtry >= p {
+        return Ok(None);
+    }
+    let mut cfg = f.cfg.clone();
+    cfg.mtry = p;
+    let full = model_lab_engine::model::fit(run.data.clone(), cfg, Arc::new(AtomicBool::new(false)))?;
+    Ok(Some(Box::new(full)))
 }
 
 pub fn stages(view: &RunView) -> usize {
@@ -261,7 +282,7 @@ pub fn context(view: &RunView, stage: usize, selected: Option<usize>) -> Context
             }
             Context(ctx)
         }
-        RunView::Fitted { run, analysis } => {
+        RunView::Fitted { run, analysis, mtry_full } => {
             let stage = stage.min(run.last_stage());
             let (train, valid) = run.scores(stage, 0.5);
             let best = best_stage(view).unwrap_or(0);
@@ -294,7 +315,12 @@ pub fn context(view: &RunView, stage: usize, selected: Option<usize>) -> Context
             if let Some(f) = fit_of(run) {
                 if f.cfg.method == model_lab_engine::model::Method::Forest {
                     let s = stage.min(f.oob_mse.len() - 1);
-                    ctx["oob"] = json!({"mse": f.oob_mse[s], "coverage": f.oob_coverage[s], "rows_train": f.train.len()});
+                    let delta = mtry_full.as_ref().and_then(|full| match (full.oob_mse.last().copied().flatten(), f.oob_mse.last().copied().flatten()) {
+                        (Some(a), Some(b)) => Some(a - b),
+                        _ => None,
+                    });
+                    ctx["oob"] = json!({"mse": f.oob_mse[s], "coverage": f.oob_coverage[s], "rows_train": f.train.len(),
+                                        "mse_delta_mtry_full": delta, "mtry_full": mtry_full.as_ref().map(|full| full.cfg.mtry)});
                 }
             }
             if let Some(a) = analysis {
@@ -395,7 +421,7 @@ pub fn observation(view: &RunView, stage: usize, selected: Option<usize>) -> Opt
 pub fn plots_for(view: &RunView, stage: usize, feature: usize, selected: Option<usize>) -> Vec<Plot> {
     match view {
         RunView::ByHand { rounds, .. } => vec![plots::byhand_rounds(rounds, stage.saturating_sub(1).min(rounds.len().saturating_sub(1)))],
-        RunView::Fitted { run, analysis } => {
+        RunView::Fitted { run, analysis, .. } => {
             let stage = stage.min(run.last_stage());
             let feature = feature.min(run.data.names.len() - 1);
             let mut out = vec![plots::loss_curve(run), plots::scatter_with_slice(run, feature, stage, selected)];

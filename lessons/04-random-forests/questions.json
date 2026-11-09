@@ -1,0 +1,127 @@
+{
+  "predictions": [
+    {
+      "id": "p1",
+      "prompt": "The forest currently offers each split {{config.mtry}} of the 8 predictors. If every split could see all 8, would the out-of-bag error at the last stage go up or down on this data?",
+      "kind": "direction",
+      "reveals": "oob.mse_delta_mtry_full",
+      "explanation": "The engine fitted the forest a second time with the same seed and `mtry` = 8; the out-of-bag MSE changed by {{oob.mse_delta_mtry_full:.3f}} (full minus current). Letting every tree see every predictor makes the trees more alike, which usually costs the average some of its advantage; on a particular dataset the sign can go either way, which is why this is measured, not asserted."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "concept": "bootstrap",
+      "stem": "A bootstrap sample draws {{rows.train}} rows with replacement from {{rows.train}} training rows. Roughly what share of rows are left out of any one sample?",
+      "options": [
+        "About a third (the limit of $(1 - 1/n)^n$ is $e^{-1} \\approx 0.37$)",
+        "None; every row is drawn exactly once",
+        "Exactly half",
+        "About 5%"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "Each draw misses a given row with probability $1 - 1/n$; after $n$ draws the chance it was never drawn is $(1-1/n)^n$, which tends to $e^{-1} \\approx 0.368$. Those rows are out of bag for that tree, and they are what makes out-of-bag error possible without a separate holdout."
+    },
+    {
+      "id": "q2",
+      "concept": "feature-subsampling",
+      "stem": "Why does a forest deliberately hide most predictors from each split?",
+      "options": [
+        "So the trees differ from one another; averaging similar trees gains little",
+        "To make each tree fit the training data better",
+        "Because trees cannot handle more than three predictors",
+        "To reduce the number of trees needed"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "The forest's error comes down through averaging, and averaging only helps when the things averaged disagree. Restricting each split to a random subset keeps the trees from all choosing the strongest predictor first, so their errors are less correlated. Each tree is a little worse; the average is better."
+    },
+    {
+      "id": "q3",
+      "concept": "oob-coverage",
+      "stem": "After the first tree, the out-of-bag coverage is about a third. What does the out-of-bag error at that stage average over?",
+      "options": [
+        "Only the training rows that tree did not see, roughly a third of {{oob.rows_train}}",
+        "All {{oob.rows_train}} training rows",
+        "The validation rows",
+        "The rows the tree saw"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "A row has an out-of-bag prediction only from trees that did not see it. After one tree, about a third of the {{oob.rows_train}} training rows qualify, so the early error is an average over few rows and jumps about; the coverage line tells you how many. As trees accumulate, coverage approaches one."
+    },
+    {
+      "id": "q4",
+      "concept": "oob-error",
+      "stem": "The out-of-bag MSE at the current stage is {{oob.mse:.3f}} with coverage {{oob.coverage:.2f}}. Which statement is correct?",
+      "options": [
+        "It is a held-out estimate built from the forest's own left-out rows, averaged over the covered share of training rows",
+        "It is the training error of the forest",
+        "It is computed on the validation set",
+        "It is exact because every row is covered"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "Each row's out-of-bag prediction uses only trees that never saw it, so the estimate is held out, like a validation error, but computed on training rows and only on the covered ones ({{oob.coverage:.2f}} of {{oob.rows_train}} here). It is not the training error and it does not touch the {{rows.valid}} validation rows."
+    },
+    {
+      "id": "q5",
+      "concept": "permutation-importance",
+      "stem": "The importance of housing vacancy is shown as {{importance.pct_house_vacant.mean:.3f}} ± {{importance.pct_house_vacant.sd:.3f}}. What does the ± part come from?",
+      "options": [
+        "Three independent shuffles of that column; the spread shows how much one shuffle's answer can vary",
+        "The standard error of the regression coefficient",
+        "The range across the trees in the forest",
+        "The difference between training and validation error"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "Permutation importance shuffles one predictor among the validation rows and measures the rise in error; a single shuffle is one random draw. The engine repeats it three times and reports the mean and the standard deviation across repeats. A range that reaches zero means the forest may not be relying on that predictor at all."
+    },
+    {
+      "id": "q6",
+      "concept": "pdp-ice-slice",
+      "stem": "In the last plot, how does the dashed slice differ from the thick partial-dependence line?",
+      "options": [
+        "The slice fixes every other predictor at its training median; the PDP averages the sweep over real reference rows",
+        "They are the same curve drawn twice",
+        "The slice uses the validation rows and the PDP the training rows",
+        "The PDP is the slice at the best stage"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "A slice describes one hypothetical row, the median row, which may not resemble any real observation. A PDP sweeps the predictor for each reference row with that row's own other values and averages, so it reflects the actual mix of rows. When the ICE lines fan out, the two can disagree, and the engine labels them so neither is read as the other."
+    },
+    {
+      "id": "q7",
+      "concept": "permutation-importance",
+      "stem": "Housing vacancy ranks first in permutation importance. Which conclusion does the plot support?",
+      "options": [
+        "The forest's predictions on this data depend most on that column",
+        "Vacancy is the main cause of crime in these communities",
+        "Reducing vacancy would reduce crime",
+        "The other predictors are irrelevant to crime"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "Permutation importance measures how much this model's predictions degrade when one column is scrambled. That is a statement about predictive reliance, not about causes: a predictor can rank high because it moves the outcome, because it travels with something that does, or because the forest found it a convenient proxy. Identification is a separate question with separate tools."
+    },
+    {
+      "id": "q8",
+      "concept": "bootstrap",
+      "stem": "How does the forest combine its {{config.trees}} trees into one prediction?",
+      "options": [
+        "It averages the trees' predictions",
+        "It adds the trees' predictions, scaled by a learning rate, to a baseline",
+        "It uses the single best tree",
+        "It takes a majority vote of the leaf means"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "A forest averages: each tree is fitted to its own bootstrap sample of the outcomes, so each is a full (noisy) model, and the average of many noisy models is steadier than any one. Boosting adds scaled corrections to a baseline instead, because each boosting tree is fitted to residuals rather than to the outcomes."
+    }
+  ]
+}
