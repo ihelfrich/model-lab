@@ -1,0 +1,127 @@
+{
+  "predictions": [
+    {
+      "id": "p1",
+      "prompt": "The tree will try the three thresholds 1.5, 2.5 and 3.5. Which one will it choose?",
+      "kind": { "choice": { "options": ["1.5", "2.5", "3.5"] } },
+      "reveals": "byhand.round.0.threshold",
+      "explanation": "The tree chooses {{byhand.round.0.threshold}}, because that cut removes {{byhand.candidates.1.reduction:.3f}} of the parent's {{byhand.sse}} in squared error, against {{byhand.candidates.0.reduction:.3f}} for each of the outer cuts. The groups {2, 4} and {8, 10} are the most alike within themselves."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "concept": "leaf-mean",
+      "stem": "A leaf contains the outcomes 2 and 4. What does it predict, and why?",
+      "options": [
+        "3, the mean, because the mean minimises the sum of squared errors within the leaf",
+        "2, the smallest value, to be safe",
+        "4, the largest value, because the tree is optimistic",
+        "Whatever the left-most point says"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "Under squared-error loss the constant that minimises the within-leaf error is the mean of the leaf's outcomes. That is why every leaf of a regression tree predicts a mean, and why the parent leaf predicts {{byhand.mean}} before any split."
+    },
+    {
+      "id": "q2",
+      "concept": "sse",
+      "stem": "The parent SSE is {{byhand.sse}}. The cut at 2.5 leaves {{byhand.candidates.1.sse_after}}. What is its reduction, and what does it measure?",
+      "options": [
+        "{{byhand.candidates.1.reduction}}: how much squared error the cut removes",
+        "{{byhand.candidates.1.sse_after}}: the error remaining in the children",
+        "2.5: the position of the cut",
+        "4: the number of points"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "The reduction is parent SSE minus the children's combined SSE: {{byhand.sse}} − {{byhand.candidates.1.sse_after}} = {{byhand.candidates.1.reduction}}. The tree ranks every admissible cut by this number and takes the largest; the remaining error, the cut position and the sample size are different quantities."
+    },
+    {
+      "id": "q3",
+      "concept": "split-rule",
+      "stem": "Why do the cuts at 1.5 and 3.5 both remove exactly {{byhand.candidates.0.reduction:.3f}}?",
+      "options": [
+        "Each strands one point (SSE 0) and leaves three on the other side with the same spread, by the symmetry of these outcomes",
+        "Because the tree always ties the outer cuts",
+        "Because 1.5 + 3.5 = 5",
+        "They do not; the engine rounds"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "At 1.5 the left group is {2} alone, SSE 0, and the right group {4, 8, 10} has SSE 18.667; at 3.5 it is {2, 4, 8} against {10}, with the same SSE by symmetry of these particular outcomes around 6. Both leave 18.667, so both remove {{byhand.candidates.0.reduction:.3f}}. That tie is a property of this data, not a rule."
+    },
+    {
+      "id": "q4",
+      "concept": "split-rule",
+      "stem": "The tree reports its split at $x \\le {{byhand.round.0.threshold}}$. Which other thresholds would have produced the very same two groups?",
+      "options": [
+        "Any value strictly between 2 and 3",
+        "Only 2.5 exactly",
+        "Any value between 1 and 4",
+        "Only integer values"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "A threshold anywhere in the open interval (2, 3) sends {1, 2} left and {3, 4} right, so the data cannot distinguish those thresholds. The engine reports the midpoint, 2.5. This is why fitted trees so often show thresholds ending in .5 on integer predictors."
+    },
+    {
+      "id": "q5",
+      "concept": "depth",
+      "stem": "At depth 2 on these four points the training SSE is zero. What has the tree done?",
+      "options": [
+        "Placed every point in its own leaf: it reproduces the table rather than describing a pattern",
+        "Found the true relationship between $x$ and $y$",
+        "Proved that depth 2 is the right depth for this data",
+        "Made an arithmetic error"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "With four points and two levels of splits, each point can be isolated and predicted exactly, so the training error vanishes. That is memorisation, not discovery: nothing about a zero training error says how the tree would do on a fifth point. The next lessons use a validation set precisely to tell these two situations apart."
+    },
+    {
+      "id": "q6",
+      "concept": "min-leaf",
+      "stem": "You set the minimum leaf size to 2. Which cuts remain admissible on these four points?",
+      "options": [
+        "Only 2.5, because 1.5 and 3.5 would each leave a single point on one side",
+        "All three, because minimum leaf size only affects deeper levels",
+        "None, because four points are too few",
+        "Only 1.5 and 3.5"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "A minimum leaf size of 2 forbids any child with fewer than two points. The cut at 1.5 leaves {2} alone and the cut at 3.5 leaves {10} alone, so both are refused; 2.5 splits 2 against 2 and survives. The brake acts on evidence, not on how tempting a cut looks."
+    },
+    {
+      "id": "q7",
+      "concept": "leaf-mean",
+      "stem": "A new point arrives with $x = 2.7$. What does the depth-1 tree predict for it?",
+      "options": [
+        "9, the mean of the right leaf, because 2.7 is above the threshold 2.5",
+        "3, the mean of the left leaf",
+        "6, the overall mean",
+        "A value interpolated between 4 and 8"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "The tree asks one question: is $x \\le 2.5$? For 2.7 the answer is no, so the point falls in the right leaf and receives that leaf's mean, 9. Trees predict step functions; they never interpolate between training outcomes."
+    },
+    {
+      "id": "q8",
+      "concept": "sse",
+      "stem": "Which statement about SSE and MSE on the parent leaf is correct?",
+      "options": [
+        "SSE is {{byhand.sse}} and MSE is {{byhand.mse}}; they differ only by the factor of the sample size",
+        "SSE and MSE are unrelated measures",
+        "MSE is the square root of SSE",
+        "SSE is always smaller than MSE"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "The mean squared error is the sum of squared errors divided by the number of points: {{byhand.sse}} / 4 = {{byhand.mse}}. Trees are usually described with SSE because splits are compared within one node, and the loss curves of the later lessons use MSE because they compare across sets of different sizes."
+    }
+  ]
+}

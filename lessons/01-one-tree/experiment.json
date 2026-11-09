@@ -1,0 +1,12 @@
+{
+  "kind": "by_hand",
+  "source": "four_point",
+  "target": "y",
+  "features": ["x"],
+  "byhand": { "rate": 1.0, "depth": 1, "rounds": 1 },
+  "learner_may_change": [
+    { "field": "depth", "min": 1, "max": 2, "step": 1 },
+    { "field": "min_leaf", "min": 1, "max": 2, "step": 1 }
+  ],
+  "config": { "model": "tree", "trees": 1, "depth": 1, "min_leaf": 1, "rate": 1.0 }
+}
