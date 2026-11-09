@@ -3,4 +3,5 @@
 //! validated before anything runs.
 pub mod lesson;
 pub mod markdown;
+pub mod plots;
 pub mod template;

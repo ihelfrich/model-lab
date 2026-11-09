@@ -98,7 +98,7 @@ fn format_value(v: &Value, fmt: &Format) -> Option<String> {
 pub fn render(template: &str, ctx: &Context) -> Rendered {
     let mut text = String::with_capacity(template.len());
     let mut missing: Vec<String> = vec![];
-    let mut note = |m: String, missing: &mut Vec<String>| {
+    let note = |m: String, missing: &mut Vec<String>| {
         if !missing.contains(&m) {
             missing.push(m);
         }
