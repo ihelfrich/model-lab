@@ -1,0 +1,136 @@
+{
+  "predictions": [
+    {
+      "id": "p1",
+      "prompt": "Before round 2 is added: the point at $x = 2$ currently sits at {{selected.before}}. Will the second stump move its prediction up or down?",
+      "kind": "direction",
+      "reveals": "selected.h",
+      "row": 1,
+      "stage": 2,
+      "explanation": "After round 1 the residual at $x = 2$ is {{selected.residual_before}}, so the second stump's leaf for that point is {{selected.h}} and the prediction moves from {{selected.before}} to {{selected.after}}. The direction of the move is always the sign of the residual the stump is fitted to."
+    },
+    {
+      "id": "p2",
+      "prompt": "The training MSE is {{byhand.round.0.mse_before:.4f}} at the start and {{byhand.round.0.mse_after:.4f}} after one round. What will it be after round 2? Enter a number.",
+      "kind": { "number": { "tolerance": 0.01 } },
+      "reveals": "byhand.round.1.mse_after",
+      "explanation": "After round 2 the training MSE is {{byhand.round.1.mse_after:.4f}}. The second stump is fitted to the residuals left by round 1 and, with rate {{byhand.rate}}, only part of its correction is added, so the loss falls but does not reach zero."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "concept": "residual",
+      "stem": "After stage 0 (the mean, {{byhand.mean}}), what is the first stump fitted to?",
+      "options": [
+        "The outcomes $y$",
+        "The residuals $y_i - \\bar y$",
+        "The predictor $x$ alone",
+        "The squared errors"
+      ],
+      "correct": [1],
+      "live": true,
+      "explanation": "Boosting fits each new tree to what the current model has not explained: the residuals. The outcomes are fitted only indirectly, through the sum of corrections; the squared errors are the loss being tracked, not the target of the tree."
+    },
+    {
+      "id": "q2",
+      "concept": "stump",
+      "stem": "The first stump splits at $x \\le {{byhand.round.0.threshold}}$. Why there and not at a data point such as $x = 2$?",
+      "options": [
+        "Cuts are placed at midpoints between neighbouring values, so any value in the gap gives the same two groups",
+        "The engine always splits at the median of $x$",
+        "Because 2.5 is the mean of the outcomes",
+        "The split position is drawn at random"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "A cut anywhere strictly between 2 and 3 produces the same two groups, so the engine reports the midpoint, 2.5. The choice between candidate cuts is made by the reduction in the sum of squared errors, which is {{byhand.candidates.1.reduction:.3f}} here against {{byhand.candidates.0.reduction:.3f}} for the other two cuts."
+    },
+    {
+      "id": "q3",
+      "concept": "learning-rate",
+      "stem": "With rate {{byhand.rate}}, the point at $x = 2$ moves from {{byhand.mean}} to {{byhand.round.0.after.1}} in round 1. What would it move to with rate 1.0?",
+      "options": [
+        "To the left leaf's full correction, that is {{byhand.mean}} + ({{byhand.round.0.left_mean}}) = 3",
+        "It would not move at all",
+        "To exactly the outcome, 4",
+        "To the right leaf's value, 9"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "The update is $F_1 = F_0 + \\nu h_1$. With $\\nu = 1$ the whole leaf value {{byhand.round.0.left_mean}} is added to the mean {{byhand.mean}}, giving 3, which is the mean of the two outcomes in that leaf. The rate scales the correction; it does not aim at any single outcome."
+    },
+    {
+      "id": "q4",
+      "concept": "additive-model",
+      "stem": "After six rounds, how is the final prediction for a point computed?",
+      "options": [
+        "The mean plus the rate times the sum of all six stump predictions",
+        "The prediction of the sixth stump alone",
+        "The average of the six stump predictions",
+        "The mean plus the last stump's prediction"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "Boosting is additive: $F_m(x) = \\bar y + \\nu \\sum_k h_k(x)$. Every stump stays in the model and contributes its scaled prediction. Averaging the trees is what a random forest does, and that is a different method with a different purpose."
+    },
+    {
+      "id": "q5",
+      "concept": "training-loss",
+      "stem": "The training MSE goes {{byhand.round.0.mse_before:.4f}} → {{byhand.round.0.mse_after:.4f}} → {{byhand.round.1.mse_after:.4f}}. Which statement about this path is correct?",
+      "options": [
+        "Each round fits the current residuals, so the training loss cannot rise from one round to the next",
+        "The loss falls by the same amount every round",
+        "The loss must reach zero after four rounds because there are four points",
+        "The loss measures performance on points the model has not seen"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p2",
+      "explanation": "Each stump is chosen to reduce the squared error of the current residuals, and a fraction of a loss-reducing correction still reduces the loss, so the training path is non-increasing. The decrements shrink as residuals shrink. Nothing here concerns unseen points: this is training loss on the four points the model was fitted to."
+    },
+    {
+      "id": "q6",
+      "concept": "learning-rate",
+      "stem": "You lower the learning rate from 0.5 to 0.1 and refit. Which of these changes?",
+      "options": [
+        "The first stump's split point",
+        "The residuals after round 1, and therefore every later stump",
+        "The mean used at stage 0",
+        "The number of points"
+      ],
+      "correct": [1],
+      "live": false,
+      "explanation": "The first stump is fitted to the residuals from the mean, which do not depend on the rate, so its split is unchanged. What the rate changes is how much of that stump is added, hence the residuals that the second stump sees, and so on down the path. The rate shapes the whole sequence after the first tree."
+    },
+    {
+      "id": "q7",
+      "concept": "residual",
+      "stem": "Why do the residuals after stage 0 sum to zero?",
+      "options": [
+        "Because the mean is the value that makes the deviations cancel",
+        "Because there are an even number of points",
+        "Because the outcomes are symmetric around 6 by coincidence only",
+        "They do not; the engine rounds them"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "The sum of deviations from the mean is zero by definition of the mean: $\\sum (y_i - \\bar y) = \\sum y_i - n\\bar y = 0$. It holds for any outcomes, symmetric or not, and it is why the first stump has to find structure in $x$ rather than simply shifting everything up or down."
+    },
+    {
+      "id": "q8",
+      "concept": "training-loss",
+      "stem": "With rate 1.0 the training loss reaches zero after a few rounds. What does that establish?",
+      "options": [
+        "That the model reproduces these four outcomes exactly, and nothing about a fifth point",
+        "That the model will predict new points exactly",
+        "That boosting has converged to the true relationship between $x$ and $y$",
+        "That the learning rate was chosen well"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "A zero training loss means the four training outcomes are reproduced. With four points and enough flexibility that is easy, and it says nothing about data the model has not seen. The next lesson introduces a validation set precisely because training loss cannot answer that question."
+    }
+  ]
+}
