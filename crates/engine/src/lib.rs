@@ -1,6 +1,7 @@
 //! Model Lab engine: data, solvers, ensembles, experiment records and study
 //! documents, with no user-interface dependency.
 
+pub mod byhand;
 pub mod data;
 pub mod decision;
 pub mod ensemble;
