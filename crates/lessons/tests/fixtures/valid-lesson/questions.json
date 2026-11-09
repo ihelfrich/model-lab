@@ -2,7 +2,7 @@
   "predictions": [
     {
       "id": "p1",
-      "prompt": "Does the prediction for x = 2 go up or down?",
+      "prompt": "The prediction for x = 2 sits at {{selected.before}}. Does it go up or down?",
       "kind": "direction",
       "reveals": "selected.h",
       "row": 1,

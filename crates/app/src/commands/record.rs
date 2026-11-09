@@ -172,10 +172,12 @@ fn run_context(state: &AppState, run_id: &str, stage: Option<usize>, row: Option
 
 pub fn check_panel(state: &AppState, lesson_id: &str, run_id: &str) -> Result<CheckPanel, String> {
     let lesson = state.lesson(lesson_id)?;
-    let (ctx, run_lesson, hash) = run_context(state, run_id, None, None)?;
+    let (v, run_lesson, hash) = view(state, run_id)?;
     if run_lesson != lesson_id {
         return Err("That run belongs to another lesson.".into());
     }
+    let last = crate::experiment::stages(&v).saturating_sub(1);
+    let ctx = context(&v, last, None);
     let check = check_state(state, run_id);
     let history = with_record(state, |r| r.lesson_history(lesson_id).map_err(|e| e.to_string())).and_then(Result::ok);
     let predictions = lesson
@@ -183,9 +185,12 @@ pub fn check_panel(state: &AppState, lesson_id: &str, run_id: &str) -> Result<Ch
         .iter()
         .map(|p| {
             let committed = check.predictions.get(&p.id);
+            // A prompt about one observation at one round is rendered in
+            // that observation's context, the same one its commit uses.
+            let own = (p.row.is_some() || p.stage.is_some()).then(|| context(&v, p.stage.unwrap_or(last), p.row));
             PredictionView {
                 id: p.id.clone(),
-                prompt_html: to_html(&render(&p.prompt, &ctx).text),
+                prompt_html: to_html(&render(&p.prompt, own.as_ref().unwrap_or(&ctx)).text),
                 kind: p.kind.clone(),
                 committed: committed.map(|(c, _)| c.clone()),
                 revealed: committed.map(|(_, r)| r.clone()),
@@ -385,6 +390,17 @@ mod tests {
         assert!(reveal.saved);
         let panel = check_panel(&state, "fixture-lesson", &run).unwrap();
         assert_eq!(panel.predictions[0].committed.as_deref(), Some("down"));
+    }
+
+    #[test]
+    fn prediction_prompt_is_rendered_for_its_own_row_and_stage() {
+        let state = AppState::new(Dirs::under(fixtures(), &tmp("prompt-row")));
+        let run = byhand_run(&state, serde_json::json!({}));
+        let panel = check_panel(&state, "fixture-lesson", &run).unwrap();
+        let html = &panel.predictions[0].prompt_html;
+        // p1 names row 1 at stage 1: before round 1 the point sits at the mean, 6.
+        assert!(!html.contains("missing"), "{html}");
+        assert!(html.contains("sits at 6"), "{html}");
     }
 
     #[test]
