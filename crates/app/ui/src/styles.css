@@ -53,3 +53,26 @@ a { color: inherit; }
 .button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 0.4rem; border: 1px solid var(--border); background: var(--surface); color: var(--fg); cursor: pointer; }
 .button:disabled { opacity: 0.6; cursor: default; }
 .instructor-notes { margin-top: 2rem; padding: 1rem; border: 1px dashed var(--c-highlight); border-radius: 0.5rem; max-width: 44rem; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin: 1rem 0; }
+.control { display: grid; gap: 0.2rem; }
+.control input[type="range"] { width: 12rem; }
+.button.primary { background: var(--c-train); color: #fff; border-color: var(--c-train); }
+.replay-bar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 0.75rem 0; }
+.replay-bar input[type="range"] { flex: 1; min-width: 10rem; }
+.replay-bar input[type="number"] { width: 5rem; }
+.plots { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr)); }
+.plot { margin: 0; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; background: var(--surface); }
+.plot-chart { width: 100%; min-height: 20rem; }
+.plot figcaption { color: var(--muted); font-size: 0.95rem; margin-top: 0.4rem; }
+.plot-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.plot-actions .button { text-decoration: none; font-size: 0.9rem; }
+.table-host { max-height: 18rem; overflow: auto; margin-top: 0.5rem; }
+.data-table { border-collapse: collapse; font-size: 0.9rem; }
+.data-table caption { text-align: left; color: var(--muted); padding-bottom: 0.3rem; }
+.data-table th, .data-table td { border: 1px solid var(--border); padding: 0.2rem 0.5rem; text-align: right; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.arithmetic { margin-top: 1.5rem; padding: 1rem; border-left: 4px solid var(--c-highlight); background: var(--surface); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.muted { color: var(--muted); }
+.rules { padding-left: 1.2rem; }

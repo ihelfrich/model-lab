@@ -4,6 +4,7 @@ import { api, type LessonCard } from "./api";
 import { el, announce } from "./dom";
 import { applyTheme } from "./theme";
 import { renderRead } from "./panels/read";
+import { renderRun } from "./panels/run";
 
 type Panel = "read" | "run" | "check";
 
@@ -83,6 +84,8 @@ async function renderLesson(id: string, panel: Panel): Promise<void> {
   main.append(tabs, host);
   if (panel === "read") {
     await renderRead(id, host);
+  } else if (panel === "run") {
+    await renderRun(id, host);
   } else {
     host.append(el("p", { class: "notice" }, `The ${panel} panel arrives with the next task.`));
   }

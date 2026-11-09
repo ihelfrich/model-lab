@@ -97,6 +97,11 @@ pub fn read_panel(state: &AppState, id: &str) -> Result<ReadPanel, String> {
     read_panel_with(state, id, &Context::empty())
 }
 
+/// What the learner may change in a lesson's experiment.
+pub fn lesson_controls(state: &AppState, id: &str) -> Result<Vec<model_lab_lessons::lesson::Learner>, String> {
+    Ok(state.lesson(id)?.experiment.learner_may_change)
+}
+
 pub fn set_instructor(state: &AppState, on: bool) -> Result<bool, String> {
     state.instructor.store(on, Ordering::Relaxed);
     if let Some(r) = state.record.lock().map_err(|_| "record unavailable")?.as_ref() {
@@ -111,26 +116,31 @@ pub fn instructor(state: &AppState) -> bool {
 
 pub mod ipc {
     use super::*;
+    use std::sync::Arc;
     use tauri::State;
 
     #[tauri::command]
-    pub fn list_lessons(state: State<'_, AppState>) -> Result<Vec<LessonCard>, String> {
+    pub fn list_lessons(state: State<'_, Arc<AppState>>) -> Result<Vec<LessonCard>, String> {
         super::list_lessons(&state)
     }
     #[tauri::command]
-    pub fn lesson_errors(state: State<'_, AppState>) -> Result<Vec<LessonError>, String> {
+    pub fn lesson_errors(state: State<'_, Arc<AppState>>) -> Result<Vec<LessonError>, String> {
         super::lesson_errors(&state)
     }
     #[tauri::command]
-    pub fn read_panel(state: State<'_, AppState>, id: String) -> Result<ReadPanel, String> {
+    pub fn read_panel(state: State<'_, Arc<AppState>>, id: String) -> Result<ReadPanel, String> {
         super::read_panel(&state, &id)
     }
     #[tauri::command]
-    pub fn set_instructor(state: State<'_, AppState>, on: bool) -> Result<bool, String> {
+    pub fn lesson_controls(state: State<'_, Arc<AppState>>, id: String) -> Result<Vec<model_lab_lessons::lesson::Learner>, String> {
+        super::lesson_controls(&state, &id)
+    }
+    #[tauri::command]
+    pub fn set_instructor(state: State<'_, Arc<AppState>>, on: bool) -> Result<bool, String> {
         super::set_instructor(&state, on)
     }
     #[tauri::command]
-    pub fn instructor(state: State<'_, AppState>) -> bool {
+    pub fn instructor(state: State<'_, Arc<AppState>>) -> bool {
         super::instructor(&state)
     }
 }

@@ -1,10 +1,12 @@
 import { api } from "../api";
 import { renderMath } from "../math";
 import { el } from "../dom";
+import { runs } from "../runs";
 
 /** The Read panel: lesson text, mathematics and a derivation revealed step by step. */
 export async function renderRead(id: string, host: HTMLElement): Promise<void> {
-  const panel = await api.readPanel(id);
+  const current = runs.get(id);
+  const panel = current ? await api.readPanelForRun(current.runId, 10_000, null).catch(() => api.readPanel(id)) : await api.readPanel(id);
   host.replaceChildren();
   if (panel.status) {
     host.append(el("p", { class: "notice", role: "note" }, `Status: ${panel.status}.`));

@@ -1,5 +1,7 @@
 use model_lab_lessons::lesson::{load_all, Lesson, LessonError};
+use crate::commands::experiment::RunEntry;
 use model_lab_record::Record;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, RwLock};
@@ -31,6 +33,7 @@ pub struct AppState {
     pub dirs: Dirs,
     pub lessons: RwLock<Vec<Lesson>>,
     pub lesson_errors: RwLock<Vec<LessonError>>,
+    pub runs: Mutex<HashMap<String, RunEntry>>,
     pub record: Mutex<Option<Record>>,
     pub record_error: Mutex<Option<String>>,
     pub instructor: AtomicBool,
@@ -56,6 +59,7 @@ impl AppState {
             dirs,
             lessons: RwLock::new(lessons),
             lesson_errors: RwLock::new(lesson_errors),
+            runs: Mutex::new(HashMap::new()),
             record: Mutex::new(record),
             record_error: Mutex::new(record_error),
             instructor: AtomicBool::new(instructor),

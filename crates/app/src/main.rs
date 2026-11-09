@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use model_lab_app::commands::experiment::ipc as experiment;
 use model_lab_app::commands::lessons::ipc as lessons;
+use std::sync::Arc;
 use model_lab_app::state::{AppState, Dirs};
 use std::path::PathBuf;
 use tauri::Manager;
@@ -27,7 +29,7 @@ fn main() {
         .setup(|app| {
             let data = app.path().app_data_dir()?;
             let dirs = Dirs::under(bundled_lessons(app), &data);
-            app.manage(AppState::new(dirs));
+            app.manage(Arc::new(AppState::new(dirs)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +38,12 @@ fn main() {
             lessons::read_panel,
             lessons::set_instructor,
             lessons::instructor,
+            lessons::lesson_controls,
+            experiment::start_experiment,
+            experiment::experiment_status,
+            experiment::cancel_experiment,
+            experiment::run_panel,
+            experiment::read_panel_for_run,
         ])
         .run(tauri::generate_context!())
         .expect("Model Lab could not start its window");
