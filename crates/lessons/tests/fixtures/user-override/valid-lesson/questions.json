@@ -1,0 +1,15 @@
+{
+  "predictions": [
+    { "id": "p1", "prompt": "Does the prediction for x = 2 go up or down?", "kind": "direction", "reveals": "selected.h" }
+  ],
+  "questions": [
+    { "id": "q1", "concept": "residual", "stem": "What does the first stump fit?",
+      "options": ["The outcomes", "The residuals from the mean", "The predictors", "The learning rate"],
+      "correct": [1], "live": false,
+      "explanation": "Boosting fits each new tree to what the current model gets wrong, the residuals, not to the outcomes themselves; the mean is the starting model." },
+    { "id": "q2", "concept": "stump", "stem": "After one round the MSE is {{byhand.round.0.mse_after:.4f}}. Why not zero?",
+      "options": ["A stump has two leaves", "The data are random", "The rate is too large", "The mean was wrong"],
+      "correct": [0], "live": true, "requires_prediction": "p1",
+      "explanation": "A depth-one tree can only produce two values, so four distinct outcomes cannot all be matched; the rate of 0.5 also takes only half of each correction." }
+  ]
+}

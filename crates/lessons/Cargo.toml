@@ -1,0 +1,19 @@
+[package]
+name = "model-lab-lessons"
+version = "0.1.0"
+edition = "2021"
+description = "Model Lab lessons: directory format, validation, live-number templates, Markdown with mathematics, plots with their tables, packets"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+model-lab-engine = { path = "../engine" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+serde_yaml_ng = "=0.10.0"
+pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"] }
+ammonia = "=4.2.4"
+sha2 = "=0.10.9"
+rand = "=0.8.5"
