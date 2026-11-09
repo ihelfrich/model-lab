@@ -85,3 +85,4 @@ a { color: inherit; }
 .result { font-weight: 600; color: var(--c-valid); }
 .result.ok { color: var(--c-oob); }
 .explanation { border-left: 3px solid var(--c-slice); padding-left: 0.8rem; margin-top: 0.5rem; }
+.export-box { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 1.5rem; }

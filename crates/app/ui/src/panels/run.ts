@@ -1,6 +1,6 @@
 import { api, type Learner, type RunPanel, type Status } from "../api";
 import { announce, el } from "../dom";
-import { renderPlot } from "../plots";
+import { renderPlot, type PlotHandle } from "../plots";
 import { SelectionStore } from "../selection";
 import { runs } from "../runs";
 
@@ -79,7 +79,9 @@ export async function renderRun(lessonId: string, host: HTMLElement): Promise<vo
   const replay = el("div", { class: "replay" });
   const plotsHost = el("div", { class: "plots" });
   const arithmeticHost = el("div");
-  host.append(status, controlsHost, replay, plotsHost, arithmeticHost);
+  const exportHost = el("div", { class: "export" });
+  host.append(status, controlsHost, replay, plotsHost, arithmeticHost, exportHost);
+  let handles: PlotHandle[] = [];
 
   let panel: RunPanel | null = null;
   const panelControls = (): Learner[] | null => panel?.controls ?? null;
@@ -93,10 +95,12 @@ export async function renderRun(lessonId: string, host: HTMLElement): Promise<vo
     lastConfig = panel.config;
     replay.replaceChildren(replayControls(panel));
     plotsHost.replaceChildren();
+    handles = [];
     for (const p of panel.plots) {
-      await renderPlot(p, plotsHost, (row) => store.set({ selected: row }));
+      handles.push(await renderPlot(p, plotsHost, (row) => store.set({ selected: row })));
     }
     arithmeticHost.replaceChildren(arithmetic(panel));
+    exportHost.replaceChildren(exportControls(panel));
     status.textContent = panel.kind === "by_hand"
       ? `Round ${panel.stage} of ${panel.stages - 1}.`
       : `Stage ${panel.stage} of ${panel.stages - 1}${panel.best_stage !== null ? `; best validation stage ${panel.best_stage}` : ""}.`;
@@ -130,6 +134,40 @@ export async function renderRun(lessonId: string, host: HTMLElement): Promise<vo
     row.addEventListener("change", () => store.set({ selected: row.value ? Number(row.value) - 1 : null }));
     bar.append(el("label", {}, "observation: ", row));
     return bar;
+  }
+
+  function exportControls(p: RunPanel): HTMLElement {
+    const box = el("section", { class: "export-box", "aria-label": "Packets" });
+    const note = el("p", { class: "muted" });
+    const make = async (studentOnly: boolean) => {
+      if (!current) return;
+      note.textContent = "Writing the packet…";
+      try {
+        const files = await api.exportPacket(lessonId, current.runId, studentOnly);
+        let saved = 0;
+        for (const [i, plot] of p.plots.entries()) {
+          const h = handles[i];
+          if (!h?.result) continue;
+          const svg = await h.result.view.toSVG();
+          await api.saveFigure(files.dir, plot.id, svg);
+          saved += 1;
+        }
+        note.textContent = `Packet written to ${files.dir} (${files.files.length} files, ${saved} figures).`;
+        announce("Packet written");
+      } catch (e) {
+        note.textContent = `Could not write the packet: ${String(e)}`;
+      }
+    };
+    const student = el("button", { type: "button", class: "button" }, "Export student packet");
+    student.addEventListener("click", () => void make(true));
+    box.append(student);
+    const instructorButton = el("button", { type: "button", class: "button" }, "Export instructor packet");
+    instructorButton.addEventListener("click", () => void make(false));
+    void api.instructor().then((on) => {
+      if (on) box.append(instructorButton);
+    });
+    box.append(note);
+    return box;
   }
 
   async function start(overrides: Record<string, number>): Promise<void> {

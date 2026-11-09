@@ -3,6 +3,7 @@
 use model_lab_app::commands::experiment::ipc as experiment;
 use model_lab_app::commands::jobs::ipc as jobs;
 use model_lab_app::commands::lessons::ipc as lessons;
+use model_lab_app::commands::packet::ipc as packet;
 use model_lab_app::commands::record::ipc as record;
 use std::sync::Arc;
 use model_lab_app::state::{AppState, Dirs};
@@ -59,6 +60,8 @@ fn main() {
             record::commit_prediction,
             record::answer_question,
             record::export_record,
+            packet::export_packet,
+            packet::save_figure,
         ])
         .run(tauri::generate_context!())
         .expect("Model Lab could not start its window");

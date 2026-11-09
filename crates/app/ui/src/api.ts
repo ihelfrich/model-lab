@@ -168,7 +168,16 @@ export interface CheckPanel {
   mastered: string[];
 }
 
+export interface PacketFiles {
+  dir: string;
+  files: string[];
+  figure_ids: string[];
+}
+
 export const api = {
+  exportPacket: (lessonId: string, runId: string, studentOnly: boolean) =>
+    invoke<PacketFiles>("export_packet", { lessonId, runId, studentOnly }),
+  saveFigure: (packetDir: string, id: string, svg: string) => invoke<string>("save_figure", { packetDir, id, svg }),
   checkPanel: (lessonId: string, runId: string) => invoke<CheckPanel>("check_panel", { lessonId, runId }),
   commitPrediction: (lessonId: string, runId: string, promptId: string, predicted: string) =>
     invoke<Reveal>("commit_prediction", { lessonId, runId, promptId, predicted }),

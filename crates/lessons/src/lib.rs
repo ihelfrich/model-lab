@@ -4,5 +4,6 @@
 pub mod examples;
 pub mod lesson;
 pub mod markdown;
+pub mod packet;
 pub mod plots;
 pub mod template;
