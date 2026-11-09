@@ -163,8 +163,12 @@ fn fail(file: &Path, field: &str, message: impl Into<String>) -> LessonError {
     LessonError { file: file.to_path_buf(), field: field.into(), message: message.into() }
 }
 
+/// Read a lesson file with line endings normalised to `\n`, so lessons
+/// written or checked out on Windows parse like the bundled ones.
 fn read(file: &Path) -> Result<String, LessonError> {
-    std::fs::read_to_string(file).map_err(|e| fail(file, "file", e.to_string()))
+    std::fs::read_to_string(file)
+        .map(|t| t.replace("\r\n", "\n"))
+        .map_err(|e| fail(file, "file", e.to_string()))
 }
 
 /// Split `lesson.md` into its YAML front matter and body.

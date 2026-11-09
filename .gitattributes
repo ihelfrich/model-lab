@@ -6,3 +6,7 @@
 *.lock text eol=lf
 *.yml text eol=lf
 *.command text eol=lf
+*.md text eol=lf
+*.ts text eol=lf
+*.css text eol=lf
+*.html text eol=lf

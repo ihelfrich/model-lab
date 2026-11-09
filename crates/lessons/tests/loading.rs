@@ -55,3 +55,21 @@ fn user_lessons_override_bundled_by_id() {
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].front.title, "Overridden by the user");
 }
+
+#[test]
+fn crlf_lesson_files_load_like_lf_ones() {
+    // Windows checkouts and Windows-authored lessons use CRLF.
+    let src = fixture("valid-lesson");
+    let dir = std::env::temp_dir().join(format!("model-lab-crlf-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["lesson.md", "derivation.md", "experiment.json", "questions.json"] {
+        let text = std::fs::read_to_string(src.join(name)).unwrap().replace('\n', "\r\n");
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    let lesson = load_dir(&dir).unwrap();
+    assert_eq!(lesson.front.id, "fixture-lesson");
+    assert_eq!(lesson.derivation.len(), 2);
+    assert!(lesson.body.starts_with("# Boosting"));
+    assert!(!lesson.body.contains('\r'));
+}
