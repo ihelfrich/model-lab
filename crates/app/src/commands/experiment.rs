@@ -324,4 +324,38 @@ mod tests {
         }
         let _ = Data { names: vec![], target: String::new(), x: vec![], y: vec![] };
     }
+
+    #[test]
+    fn in_sample_marks_rows_outside_this_rounds_sample() {
+        let mut exp = boosting_experiment();
+        exp.config.model = ModelId::parse("stochastic").unwrap();
+        exp.config.tree.fraction = 0.5;
+        let (view, _) = build_view("l", &exp, &serde_json::json!({}), no_cancel(), 5000).unwrap();
+        let flags: Vec<bool> = (0..90).filter_map(|row| observation(&view, 1, Some(row)).and_then(|o| o.in_sample)).collect();
+        assert!(flags.iter().any(|&b| b) && flags.iter().any(|&b| !b), "{flags:?}");
+        let full = build_view("l", &boosting_experiment(), &serde_json::json!({}), no_cancel(), 5000).unwrap().0;
+        let training_row = match &full {
+            RunView::Fitted { run, .. } => run.partition.train[0],
+            _ => unreachable!(),
+        };
+        assert_eq!(observation(&full, 1, Some(training_row)).unwrap().in_sample, Some(true));
+    }
+
+    #[test]
+    fn fraction_below_one_selects_stochastic() {
+        let mut exp = boosting_experiment();
+        exp.learner_may_change.push(Learner { field: "fraction".into(), min: 0.3, max: 1.0, step: 0.1 });
+        let cfg = apply_overrides(&exp.config, &exp.learner_may_change, &serde_json::json!({"fraction": 0.5})).unwrap();
+        assert_eq!(cfg.model, ModelId::parse("stochastic").unwrap());
+        let back = apply_overrides(&exp.config, &exp.learner_may_change, &serde_json::json!({"fraction": 1.0})).unwrap();
+        assert_eq!(back.model, ModelId::parse("boosting").unwrap());
+    }
+
+    #[test]
+    fn last_minus_best_is_nonnegative() {
+        let (view, _) = build_view("l", &boosting_experiment(), &serde_json::json!({}), no_cancel(), 5000).unwrap();
+        let ctx = context(&view, 12, None);
+        let delta = ctx.get("metric.valid_mse_at_last_minus_best").and_then(|v| v.as_f64()).unwrap();
+        assert!(delta >= 0.0, "{delta}");
+    }
 }

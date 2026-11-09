@@ -55,6 +55,9 @@ pub struct Observation {
     pub residual_after: f64,
     pub rules: Vec<String>,
     pub in_training: bool,
+    /// Whether this row was in the sample the stage's tree was fitted to
+    /// (stochastic boosting and forests); `None` before the first tree.
+    pub in_sample: Option<bool>,
 }
 
 pub fn four_points() -> Data {
@@ -102,6 +105,15 @@ pub fn apply_overrides(config: &RunConfig, allowed: &[Learner], overrides: &Valu
             let clamped = v.clamp(rule.min, rule.max);
             let integer = matches!(merged[key], Value::Number(ref n) if n.is_u64() || n.is_i64());
             merged[key] = if integer { json!(clamped.round() as u64) } else { json!(clamped) };
+        }
+    }
+    // A sample fraction below one is stochastic boosting; back at one it is
+    // ordinary boosting again. The model name follows the slider.
+    if let Some(fraction) = merged["fraction"].as_f64() {
+        match merged["model"].as_str() {
+            Some("boosting") if fraction < 1.0 => merged["model"] = json!("stochastic"),
+            Some("stochastic") if fraction >= 1.0 => merged["model"] = json!("boosting"),
+            _ => {}
         }
     }
     RunConfig::from_json(&merged)
@@ -254,6 +266,11 @@ pub fn context(view: &RunView, stage: usize, selected: Option<usize>) -> Context
             let (train, valid) = run.scores(stage, 0.5);
             let best = best_stage(view).unwrap_or(0);
             let best_valid = run.trace.get(best).map(|s| s.valid_loss);
+            let last_valid = run.trace.last().map(|s| s.valid_loss);
+            let last_minus_best = match (last_valid, best_valid) {
+                (Some(l), Some(b)) => Some((l - b).max(0.0)),
+                _ => None,
+            };
             let mut ctx = json!({
                 "data": {"n": run.data.y.len(), "target": run.data.target},
                 "rows": {"train": run.partition.train.len(), "valid": run.partition.valid.len()},
@@ -263,6 +280,7 @@ pub fn context(view: &RunView, stage: usize, selected: Option<usize>) -> Context
                     "train_mse": train.loss, "valid_mse": valid.loss,
                     "train_rmse": train.rmse, "valid_rmse": valid.rmse,
                     "best_valid_mse": best_valid,
+                    "valid_mse_at_last_minus_best": last_minus_best,
                 },
             });
             if let Some((intercept, coefs)) = run.coefficients(stage) {
@@ -312,7 +330,7 @@ fn observation_json(o: &Observation) -> Value {
     json!({
         "row": o.row, "y": o.y, "before": o.before, "h": o.h, "rate": o.rate, "after": o.after,
         "residual_before": o.residual_before, "residual_after": o.residual_after,
-        "in_training": o.in_training, "x": Value::Object(x),
+        "in_training": o.in_training, "in_sample": o.in_sample, "x": Value::Object(x),
     })
 }
 
@@ -330,7 +348,7 @@ pub fn observation(view: &RunView, stage: usize, selected: Option<usize>) -> Opt
                 let mean = rounds.first().map(|r| r.before[row]).unwrap_or(y);
                 return Some(Observation {
                     row, x, y, before: mean, h: None, rate: None, after: mean,
-                    residual_before: y - mean, residual_after: y - mean, rules: vec![], in_training: true,
+                    residual_before: y - mean, residual_after: y - mean, rules: vec![], in_training: true, in_sample: None,
                 });
             }
             let r = &rounds[(stage - 1).min(rounds.len() - 1)];
@@ -340,7 +358,7 @@ pub fn observation(view: &RunView, stage: usize, selected: Option<usize>) -> Opt
             r.tree.rules(&data.names, String::new(), &mut rules);
             Some(Observation {
                 row, x, y, before: r.before[row], h: Some(h), rate: Some(rate), after: r.after[row],
-                residual_before: r.residual_before[row], residual_after: r.residual_after[row], rules, in_training: true,
+                residual_before: r.residual_before[row], residual_after: r.residual_after[row], rules, in_training: true, in_sample: Some(true),
             })
         }
         RunView::Fitted { run, .. } => {
@@ -352,20 +370,22 @@ pub fn observation(view: &RunView, stage: usize, selected: Option<usize>) -> Opt
             let y = run.data.y[row];
             let after = run.predictions(stage)[row];
             let before = if stage == 0 { after } else { run.predictions(stage - 1)[row] };
-            let (h, rate, rules) = match fit_of(run) {
+            let (h, rate, rules, in_sample) = match fit_of(run) {
                 Some(f) if stage >= 1 && stage <= f.trees.len() => {
                     let tree = &f.trees[stage - 1];
                     let mut rules = vec![];
                     tree.rules(&run.data.names, String::new(), &mut rules);
                     let rate = if f.cfg.method.boosting() { Some(f.cfg.rate) } else { None };
-                    (Some(tree.predict(&run.data.x[row])), rate, rules)
+                    let in_sample = f.samples.get(stage - 1).map(|s| s.contains(&row));
+                    (Some(tree.predict(&run.data.x[row])), rate, rules, in_sample)
                 }
-                _ => (None, None, vec![]),
+                _ => (None, None, vec![], None),
             };
             Some(Observation {
                 row, x, y, before, h, rate, after,
                 residual_before: y - before, residual_after: y - after, rules,
                 in_training: run.partition.train.contains(&row),
+                in_sample,
             })
         }
     }

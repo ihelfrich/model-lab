@@ -1,0 +1,135 @@
+{
+  "predictions": [
+    {
+      "id": "p1",
+      "prompt": "The validation loss is lowest at stage {{stage.best}} ({{metric.best_valid_mse:.2f}}). At the last stage, {{stage.last}}, will the validation MSE be lower than that, higher, or the same?",
+      "kind": "direction",
+      "reveals": "metric.valid_mse_at_last_minus_best",
+      "explanation": "The best stage is the minimum of the validation curve, so the loss at any other stage, including the last, is higher or equal: the difference is {{metric.valid_mse_at_last_minus_best:.2f}}. Predicting \"down\" can never be right here, and seeing why is the point: the minimum was found by looking at the same rows."
+    },
+    {
+      "id": "p2",
+      "prompt": "Pick a training observation in the Run panel. From stage {{stage.best}} to the next stage, does its residual shrink in absolute value? Predict for the point you selected: does its prediction move up or down at the next stage?",
+      "kind": "direction",
+      "reveals": "selected.h",
+      "row": 0,
+      "explanation": "The new tree's leaf value for observation 1 at this stage is {{selected.h}}; the prediction moves from {{selected.before}} to {{selected.after}} and the residual from {{selected.residual_before}} to {{selected.residual_after}}. A tree fitted to residuals moves each point in the direction of its own residual only on average; an individual point can be moved the wrong way by the other points sharing its leaf."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "concept": "validation-curve",
+      "stem": "The legend reads \"training (n={{rows.train}})\" and \"validation (n={{rows.valid}})\". Why does each curve carry its own n?",
+      "options": [
+        "Each loss is an average over a different set of rows, and a rate or average without its denominator cannot be judged",
+        "Because the two sets have different predictors",
+        "To show that validation rows are more important",
+        "The n is the number of trees"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "The training loss averages squared errors over {{rows.train}} rows and the validation loss over {{rows.valid}} different rows. Averages over different samples are compared all the time in this lesson, and the denominator is part of what each number means; the engine prints it so you never have to guess."
+    },
+    {
+      "id": "q2",
+      "concept": "best-stage",
+      "stem": "How did the engine arrive at stage {{stage.best}} as the best stage?",
+      "options": [
+        "It computed the validation MSE at every stage and took the stage with the smallest value",
+        "It stopped when the training loss stopped falling",
+        "It used a rule of thumb of about half the trees",
+        "The lesson author chose it"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "Every stage's validation loss is recorded; the best stage is the argmin, here {{stage.best}} with {{metric.best_valid_mse:.2f}}. Training loss cannot pick it because training loss falls at every stage by construction. Nothing was assumed: change a setting and the best stage is recomputed."
+    },
+    {
+      "id": "q3",
+      "concept": "overfitting",
+      "stem": "Past the best stage the training loss keeps falling while the validation loss rises. What is the model doing in those stages?",
+      "options": [
+        "Fitting the particular noise of the {{rows.train}} training rows, which does not carry over to the held-out rows",
+        "Fitting the validation rows",
+        "Reducing the learning rate automatically",
+        "Nothing; the curves are drawn with different scales"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "Each extra tree still reduces squared error on the rows it was fitted to, so training loss falls. When those reductions come from patterns that exist only in the training sample, the held-out rows do not benefit and their loss rises. That divergence is what overfitting looks like, and the validation curve is how you see it."
+    },
+    {
+      "id": "q4",
+      "concept": "depth-capacity",
+      "stem": "You move the depth from 1 to 5 and refit. What should you expect, and why?",
+      "options": [
+        "A faster fall in training loss and an earlier upturn in validation loss, because each tree can carve the predictor space into more cells",
+        "No change, because depth only affects the first tree",
+        "A slower fall in both curves",
+        "The best stage moves later because deeper trees are more cautious"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "Depth is each tree's capacity: a depth-5 tree can have up to 32 leaves and fit much more of the current residual in one step. Bigger steps reach the noise sooner, so the validation curve turns up at an earlier stage. Capacity per tree and the number of trees trade off against each other."
+    },
+    {
+      "id": "q5",
+      "concept": "subsampling",
+      "stem": "With the sample fraction at 0.5, a hollow point in the scatter is a row the current tree did not see. Is that row's prediction still updated at this stage?",
+      "options": [
+        "Yes: the tree is a rule over the predictors and its correction applies to every row, seen or not",
+        "No: only sampled rows are updated",
+        "Only if the row is in the validation set",
+        "Only at the best stage"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "Subsampling changes which rows a tree is fitted to, not which rows it predicts for. Once fitted, the tree assigns a leaf value to every row, hollow or filled, and the scaled value is added to every prediction. That is also how the validation rows, which no tree ever sees, receive predictions at all."
+    },
+    {
+      "id": "q6",
+      "concept": "validation-is-not-test",
+      "stem": "You tuned depth, rate and the stage on the validation set and found {{metric.best_valid_mse:.2f}}. Which claim is honest?",
+      "options": [
+        "This is the lowest validation loss among the settings tried; new data would likely do somewhat worse",
+        "This is the model's expected error on next year's data",
+        "This is a test-set error because validation rows were never fitted",
+        "This number is exact because the rows were held out"
+      ],
+      "correct": [0],
+      "live": true,
+      "requires_prediction": "p1",
+      "explanation": "The validation set was used to choose among many candidate models, so the chosen model's validation loss is the best of many looks at the same {{rows.valid}} rows and is optimistic for new data. A test set is looked at once, after choosing; this lesson has none, and says so. Held-out is necessary for a test set, not sufficient."
+    },
+    {
+      "id": "q7",
+      "concept": "best-stage",
+      "stem": "Why can the validation MSE at the last stage never be below the best-stage value {{metric.best_valid_mse:.2f}}?",
+      "options": [
+        "Because the best stage is defined as the stage with the smallest validation MSE",
+        "Because the last stage always overfits",
+        "Because training loss is always below validation loss",
+        "It can, when the learning rate is small"
+      ],
+      "correct": [0],
+      "live": true,
+      "explanation": "The best stage is the argmin of the recorded validation losses, so every other stage's loss, including the last, is at least as large: the difference shown in the lesson, {{metric.valid_mse_at_last_minus_best:.2f}}, is zero or positive by definition. The last stage may or may not overfit; the inequality holds regardless."
+    },
+    {
+      "id": "q8",
+      "concept": "validation-curve",
+      "stem": "Which change to the experiment leaves the validation set itself unchanged?",
+      "options": [
+        "Changing depth, rate, fraction or the number of trees",
+        "Changing the random seed",
+        "Changing the validation fraction",
+        "Loading a different data file"
+      ],
+      "correct": [0],
+      "live": false,
+      "explanation": "The split into training and validation rows is drawn once from the seed and the validation fraction before any tree is fitted. Model settings such as depth, rate, subsampling and tree count change what is fitted on the training rows, not which rows are held out, which is what makes their validation curves comparable."
+    }
+  ]
+}

@@ -119,10 +119,19 @@ pub fn loss_curve(run: &Run) -> Plot {
 pub fn scatter_with_slice(run: &Run, feature: usize, stage: usize, selected: Option<usize>) -> Plot {
     let name = run.data.names[feature].clone();
     let pred = run.predictions(stage);
-    let columns = ["row", "x", "y", "prediction", "split", "selected"];
+    let sample: Option<&Vec<usize>> = match &run.fitted {
+        model_lab_engine::experiment::FittedModel::Trees(f) if stage >= 1 => f.samples.get(stage - 1),
+        _ => None,
+    };
+    let columns = ["row", "x", "y", "prediction", "split", "selected", "in_sample"];
     let mut rows = vec![];
     for (i, x) in run.data.x.iter().enumerate() {
-        let split = if run.partition.train.contains(&i) { "training" } else { "validation" };
+        let training = run.partition.train.contains(&i);
+        let split = if training { "training" } else { "validation" };
+        let in_sample = match sample {
+            Some(s) => json!(s.contains(&i)),
+            None => json!(training),
+        };
         rows.push(vec![
             json!(i),
             num(x[feature]),
@@ -130,6 +139,7 @@ pub fn scatter_with_slice(run: &Run, feature: usize, stage: usize, selected: Opt
             num(pred[i]),
             json!(split),
             json!(selected == Some(i)),
+            in_sample,
         ]);
     }
     let slice: Vec<Value> = run
@@ -149,6 +159,7 @@ pub fn scatter_with_slice(run: &Run, feature: usize, stage: usize, selected: Opt
              "encoding": {"x": {"field": "x", "type": "quantitative", "title": name},
                           "y": {"field": "y", "type": "quantitative", "title": run.data.target},
                           "shape": {"field": "split", "type": "nominal", "title": null},
+                          "fill": {"condition": {"test": "datum.in_sample", "field": "split", "type": "nominal", "scale": {"domain": ["training", "validation"], "range": [C_TRAIN, C_VALID]}}, "value": "transparent"},
                           "color": {"field": "split", "type": "nominal", "title": null,
                                     "scale": {"domain": ["training", "validation"], "range": [C_TRAIN, C_VALID]}}}},
             {"data": {"name": "slice"}, "mark": {"type": "line", "color": C_SLICE},
@@ -161,7 +172,7 @@ pub fn scatter_with_slice(run: &Run, feature: usize, stage: usize, selected: Opt
         id: "scatter".into(),
         title: format!("{} against {name}", run.data.target),
         description: format!(
-            "Each point is an observation; the line is the model at stage {stage} with the other predictors held at their training medians (a slice, not a partial dependence)."
+            "Each point is an observation; the line is the model at stage {stage} with the other predictors held at their training medians (a slice, not a partial dependence). Hollow points were not in the sample this stage's tree was fitted to."
         ),
         spec,
         table: table(&columns, rows),

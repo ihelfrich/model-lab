@@ -6,7 +6,7 @@ use model_lab_lessons::template::render;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
-const LESSONS: &[&str] = &["one-tree", "boosting-by-hand"];
+const LESSONS: &[&str] = &["one-tree", "boosting-by-hand", "boosting-on-data"];
 const PLANNED: &[&str] = &["one-tree", "boosting-by-hand", "boosting-on-data", "random-forests"];
 
 fn lessons_dir() -> PathBuf {
@@ -90,6 +90,14 @@ fn boosting_by_hand_numbers_are_the_taught_ones() {
 fn one_tree_shows_all_three_candidates() {
     let (text, _) = rendered_text(&lesson("one-tree"));
     for n in ["36", "21.33", "2.5"] {
+        assert!(text.contains(n), "{n} not in the rendered lesson");
+    }
+}
+
+#[test]
+fn boosting_on_data_renders_its_denominators() {
+    let (text, _) = rendered_text(&lesson("boosting-on-data"));
+    for n in ["2,250", "750"] {
         assert!(text.contains(n), "{n} not in the rendered lesson");
     }
 }
